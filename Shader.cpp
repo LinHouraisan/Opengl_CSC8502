@@ -32,6 +32,13 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) {
     }
     catch (std::ifstream::failure& e) {
         std::cout << "ERROR::SHADER::FILE_NOT_SUCCESSFULLY_READ" << std::endl;
+        std::cout << "Vertex shader path: " << vertexPath << std::endl;
+        std::cout << "Fragment shader path: " << fragmentPath << std::endl;
+        std::cout << "Error: " << e.what() << std::endl;
+
+        // Set empty shader code to trigger compilation error
+        vertexCode = "";
+        fragmentCode = "";
     }
 
     const char* vShaderCode = vertexCode.c_str();
@@ -67,6 +74,10 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) {
 Shader::Shader(const std::string& vertexSource, const std::string& fragmentSource) {
     const char* vShaderCode = vertexSource.c_str();
     const char* fShaderCode = fragmentSource.c_str();
+
+    // Debug: Print shader source lengths
+    std::cout << "Vertex shader source length: " << vertexSource.length() << std::endl;
+    std::cout << "Fragment shader source length: " << fragmentSource.length() << std::endl;
 
     // 2. Compile shaders
     unsigned int vertex, fragment;

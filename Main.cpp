@@ -96,12 +96,7 @@ int main() {
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 model = glm::mat4(1.0f);
 
-        // Draw skybox
-        skyboxShader.setMat4("projection", projection);
-        skyboxShader.setMat4("view", view);
-        skybox.Draw(skyboxShader);
-
-        // Draw terrain
+        // 1. 先绘制地形
         terrainShader.use();
         terrainShader.setMat4("projection", projection);
         terrainShader.setMat4("view", view);
@@ -109,8 +104,19 @@ int main() {
         terrainShader.setVec3("lightPos", lightPos);
         terrainShader.setVec3("viewPos", camera.Position);
         terrainShader.setVec3("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
-
         terrainMesh->Draw();
+
+        // 2. 最后绘制天空盒（确保天空盒在最后面）
+        glDepthFunc(GL_LEQUAL);  // 改变深度函数，使天空盒通过深度测试
+        skyboxShader.use();
+
+        // 移除视图矩阵的平移部分
+        glm::mat4 skyboxView = glm::mat4(glm::mat3(view));
+        skyboxShader.setMat4("projection", projection);
+        skyboxShader.setMat4("view", skyboxView);
+
+        skybox.Draw(skyboxShader);
+        glDepthFunc(GL_LESS);  // 恢复默认深度函数
 
         // Swap buffers and poll events
         glfwSwapBuffers(window);

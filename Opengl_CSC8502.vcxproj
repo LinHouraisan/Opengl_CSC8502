@@ -142,9 +142,9 @@
     <ClInclude Include="Terrain.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="skybos.frag" />
-    <None Include="skybox.vert" />
-    <None Include="terrain.frag" />
+    <None Include="shaders\skybox.frag" />
+    <None Include="shaders\skybox.vert" />
+    <None Include="shaders\terrain.frag" />
     <None Include="terrain.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

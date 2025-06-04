@@ -58,13 +58,13 @@
     <None Include="terrain.vert">
       <Filter>资源文件\shaders</Filter>
     </None>
-    <None Include="terrain.frag">
+    <None Include="shaders\skybox.frag">
       <Filter>资源文件\shaders</Filter>
     </None>
-    <None Include="skybos.frag">
+    <None Include="shaders\skybox.vert">
       <Filter>资源文件\shaders</Filter>
     </None>
-    <None Include="skybox.vert">
+    <None Include="shaders\terrain.frag">
       <Filter>资源文件\shaders</Filter>
     </None>
   </ItemGroup>
