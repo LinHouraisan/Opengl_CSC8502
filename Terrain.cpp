@@ -1,6 +1,6 @@
 #include "Terrain.h"
 #include <cmath>
-#include <random>
+#include <algorithm>
 
 Terrain::Terrain(int gridSize, float gridScale, float volcanoRadius, float craterRadius)
     : gridSize(gridSize), gridScale(gridScale),
@@ -57,124 +57,129 @@ float Terrain::GetHeightAt(float x, float z) {
 float Terrain::generateVolcanoHeight(float x, float z) {
     float distance = sqrt(x * x + z * z);
 
-    // 基础地形 - 平原
-    float baseHeight = 0.0f;
+    // 基础高度为0（平原）
+    float height = 0.0f;
 
-    // 只在火山范围内生成火山地形
-    if (distance < volcanoRadius * 1.5f) {
-        // 火山形状
-        float volcanoHeight = 0.0f;
+    // 只在火山范围内生成高度
+    if (distance < volcanoRadius) {
+        // 计算归一化距离
+        float t = distance / volcanoRadius;
 
-        if (distance < volcanoRadius) {
-            // 基础圆锥形状
-            float t = distance / volcanoRadius;
-            volcanoHeight = (1.0f - t * t) * 35.0f; // 使用平方函数让坡度更自然
+        // 更真实的火山轮廓 - 向内凹陷的曲线
+        float bowlProfile;
+        if (t < 0.3f) {
+            // 顶部区域 - 陡峭下降
+            float localT = t / 0.3f;
+            // 使用立方函数创建凹陷效果
+            bowlProfile = 1.0f - localT * localT * localT * 0.3f;
+        }
+        else if (t < 0.7f) {
+            // 中部区域 - 凹陷的主体
+            float localT = (t - 0.3f) / 0.4f;
+            // 使用开方函数创建向内凹的曲线
+            bowlProfile = 0.7f - sqrt(localT) * 0.5f;
+        }
+        else {
+            // 底部区域 - 平缓延伸
+            float localT = (t - 0.7f) / 0.3f;
+            // 使用指数函数让底部更平缓
+            bowlProfile = 0.2f * exp(-localT * 2.0f);
+        }
+        float baseHeight = bowlProfile * 35.0f;
 
-            // 添加多层噪声以创建粗糙表面
-            // 大尺度起伏
-            float largeNoise = fbmNoise(x * 0.02f, z * 0.02f, 3) * 4.0f;
+        // 计算角度用于径向特征
+        float angle = atan2(z, x);
 
-            // 中等尺度的岩石纹理
-            float mediumNoise = fbmNoise(x * 0.08f, z * 0.08f, 4) * 2.0f;
+        // 添加8条水流冲刷的沟壑（凹陷）
+        float grooveDepth = 0.0f;
+        for (int i = 0; i < 8; i++) {
+            float grooveAngle = (float)i * 6.28318f / 8.0f;
+            float angleDiff = angle - grooveAngle;
 
-            // 小尺度的粗糙度
-            float smallNoise = fbmNoise(x * 0.3f, z * 0.3f, 2) * 0.8f;
+            // 归一化角度差
+            while (angleDiff > 3.14159f) angleDiff -= 6.28318f;
+            while (angleDiff < -3.14159f) angleDiff += 6.28318f;
 
-            // 根据高度调整噪声强度 - 山顶附近噪声更强
-            float heightFactor = volcanoHeight / 35.0f;
-            volcanoHeight += largeNoise * (0.5f + heightFactor * 0.5f);
-            volcanoHeight += mediumNoise * (0.3f + heightFactor * 0.7f);
-            volcanoHeight += smallNoise;
-
-            // 添加径向沟壑
-            float angle = atan2(z, x);
-            float groovePattern = sin(angle * 12.0f) * 0.5f + 0.5f;
-            groovePattern = pow(groovePattern, 3.0f); // 让沟壑更明显
-            volcanoHeight -= groovePattern * (1.0f - t) * 2.0f; // 沟壑从山顶向下逐渐变浅
-
-            // 创建主岩浆流道
-            float lavaAngle = 0.7f; // 主岩浆流道的角度（弧度）
-            float angleDiff = fabs(angle - lavaAngle);
-            if (angleDiff > 3.14159f) angleDiff = 2.0f * 3.14159f - angleDiff;
-
-            if (angleDiff < 0.3f) { // 流道宽度
-                float channelDepth = (1.0f - angleDiff / 0.3f) * (1.0f - t * 0.7f) * 4.0f;
-                // 添加一些噪声让流道更自然
-                channelDepth *= (1.0f + noise(x * 0.1f, z * 0.1f) * 0.3f);
-                volcanoHeight -= channelDepth;
-            }
-
-            // 火山口
-            if (distance < craterRadius) {
-                float craterT = distance / craterRadius;
-
-                // 火山口深度
-                float craterDepth = (1.0f - craterT * craterT) * 12.0f;
-
-                // 火山口边缘的随机高度变化
-                float rimNoise = 0.0f;
-                if (craterT > 0.7f) { // 只在边缘附近添加变化
-                    float rimFactor = (craterT - 0.7f) / 0.3f;
-                    // 使用角度创建不规则的边缘
-                    rimNoise = sin(angle * 8.0f + noise(x * 0.5f, z * 0.5f) * 3.0f) * 2.0f;
-                    rimNoise += fbmNoise(x * 0.2f, z * 0.2f, 2) * 3.0f;
-                    rimNoise *= (1.0f - rimFactor); // 向内逐渐减少
-                }
-
-                volcanoHeight = volcanoHeight - craterDepth + rimNoise;
-
-                // 确保火山口中心有一些起伏
-                if (craterT < 0.3f) {
-                    volcanoHeight += fbmNoise(x * 0.15f, z * 0.15f, 2) * 1.5f;
-                }
-            }
-
-            // 添加一些岩石突起
-            float rockNoise = ridgedNoise(x * 0.1f, z * 0.1f);
-            if (rockNoise > 0.7f) {
-                volcanoHeight += (rockNoise - 0.7f) * 10.0f * (1.0f - t);
+            if (fabs(angleDiff) < 0.15f) {
+                float grooveStrength = 1.0f - fabs(angleDiff) / 0.15f;
+                // 沟壑从山顶到山底，深度逐渐变浅
+                float depthFactor = 1.0f - t * 0.5f;
+                grooveDepth = fmax(grooveDepth, grooveStrength * 3.0f * depthFactor);
             }
         }
 
-        baseHeight = volcanoHeight;
+        // 添加4条山脊（凸起，梯形）
+        float ridgeHeight = 0.0f;
+        for (int i = 0; i < 4; i++) {
+            float ridgeAngle = (float)i * 6.28318f / 4.0f + 0.39269f; // 偏移45度
+            float angleDiff = angle - ridgeAngle;
+
+            // 归一化角度差
+            while (angleDiff > 3.14159f) angleDiff -= 6.28318f;
+            while (angleDiff < -3.14159f) angleDiff += 6.28318f;
+
+            if (fabs(angleDiff) < 0.25f) {
+                // 梯形轮廓
+                float ridgeStrength;
+                if (fabs(angleDiff) < 0.1f) {
+                    ridgeStrength = 1.0f; // 顶部平坦
+                }
+                else {
+                    ridgeStrength = 1.0f - (fabs(angleDiff) - 0.1f) / 0.15f; // 斜坡
+                }
+                // 山脊从山顶到山底，高度逐渐降低
+                float heightFactor = 1.0f - t * 0.6f;
+                ridgeHeight = fmax(ridgeHeight, ridgeStrength * 4.0f * heightFactor);
+            }
+        }
+
+        // 应用沟壑和山脊
+        baseHeight = baseHeight - grooveDepth + ridgeHeight;
+
+        // 添加表面颗粒感
+        float granularity = noise(x * 0.5f, z * 0.5f) * 0.5f;
+        granularity += noise(x * 1.0f, z * 1.0f) * 0.25f;
+        baseHeight += granularity;
+
+        // 火山口 - 圆柱形环状结构
+        if (distance < craterRadius) {
+            float craterT = distance / craterRadius;
+
+            // 火山口是一个圆环形的"支撑"
+            if (craterT > 0.6f) {
+                // 火山口环的外壁
+                float rimT = (craterT - 0.6f) / 0.4f;
+                float rimHeight = 5.0f * (1.0f - rimT * rimT);
+
+                // 边缘起伏
+                float rimVariation = sin(angle * 7.0f) * 1.0f;
+                rimVariation += noise(x * 0.3f, z * 0.3f) * 1.5f;
+
+                baseHeight += rimHeight + rimVariation;
+            }
+            else {
+                // 火山口内部凹陷
+                float innerDepth = 8.0f * (1.0f - craterT / 0.6f);
+                baseHeight -= innerDepth;
+            }
+        }
+
+        height = baseHeight;
     }
 
-    return baseHeight;
+    return height;
 }
 
 float Terrain::noise(float x, float y) {
-    // 改进的噪声函数
-    float n = sin(x * 1.2f + y * 0.8f) * cos(y * 1.1f - x * 0.9f);
-    n += sin(x * 2.4f - y * 2.1f) * cos(y * 2.3f + x * 1.9f) * 0.5f;
-    n += sin(x * 4.7f + y * 3.9f) * cos(y * 4.1f - x * 3.7f) * 0.25f;
-    return n * 0.5f;
-}
-
-float Terrain::fbmNoise(float x, float y, int octaves) {
-    float value = 0.0f;
-    float amplitude = 1.0f;
-    float frequency = 1.0f;
-    float maxValue = 0.0f;
-
-    for (int i = 0; i < octaves; i++) {
-        value += noise(x * frequency, y * frequency) * amplitude;
-        maxValue += amplitude;
-        amplitude *= 0.5f;
-        frequency *= 2.0f;
-    }
-
-    return value / maxValue;
-}
-
-float Terrain::ridgedNoise(float x, float y) {
-    float n = 1.0f - fabs(noise(x, y));
-    n = n * n;
-    return n;
+    // 简单的伪随机噪声函数
+    float n = sin(x * 2.1f) * cos(y * 1.9f);
+    n += sin(x * 4.3f) * cos(y * 3.7f) * 0.5f;
+    return n * 0.3f;
 }
 
 glm::vec3 Terrain::calculateNormal(float x, float z) {
-    // Calculate normal using finite differences
-    float eps = 0.5f; // 稍微增大采样距离以获得更平滑的法线
+    // 使用有限差分计算法线
+    float eps = 0.3f;
     float hL = generateVolcanoHeight(x - eps, z);
     float hR = generateVolcanoHeight(x + eps, z);
     float hD = generateVolcanoHeight(x, z - eps);

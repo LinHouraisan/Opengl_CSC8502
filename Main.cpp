@@ -15,7 +15,7 @@ const unsigned int SCR_WIDTH = 1280;
 const unsigned int SCR_HEIGHT = 720;
 
 // Camera - 调整初始位置以更好地查看火山
-Camera camera(glm::vec3(80.0f, 50.0f, 80.0f));
+Camera camera(glm::vec3(60.0f, 40.0f, 60.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -65,8 +65,8 @@ int main() {
     Shader terrainShader("shaders/terrain.vert", "shaders/terrain.frag");
     Shader skyboxShader("shaders/skybox.vert", "shaders/skybox.frag");
 
-    // Create terrain - 扩大地形尺寸
-    Terrain terrain(200, 1.5f, 60.0f, 15.0f);  // 更大的网格和火山
+    // Create terrain - 适中的地形尺寸，火山口稍小
+    Terrain terrain(150, 1.0f, 45.0f, 10.0f);  // 火山口半径调整为10
     auto terrainMesh = terrain.GenerateMesh();
 
     // Create skybox
