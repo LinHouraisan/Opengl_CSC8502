@@ -26,7 +26,12 @@ private:
     // Simple noise function
     float noise(float x, float y);
 
+    // Fractal Brownian Motion noise
+    float fbmNoise(float x, float y, int octaves);
+
+    // Ridged noise for creating sharp features
+    float ridgedNoise(float x, float y);
+
     // Calculate normal from neighboring heights
     glm::vec3 calculateNormal(float x, float z);
 };
-

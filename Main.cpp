@@ -14,8 +14,8 @@
 const unsigned int SCR_WIDTH = 1280;
 const unsigned int SCR_HEIGHT = 720;
 
-// Camera
-Camera camera(glm::vec3(50.0f, 30.0f, 50.0f));
+// Camera - 调整初始位置以更好地查看火山
+Camera camera(glm::vec3(80.0f, 50.0f, 80.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -38,7 +38,7 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // Create window
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Volcano Terrain Demo", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Realistic Volcano Terrain", NULL, NULL);
     if (window == NULL) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -65,15 +65,15 @@ int main() {
     Shader terrainShader("shaders/terrain.vert", "shaders/terrain.frag");
     Shader skyboxShader("shaders/skybox.vert", "shaders/skybox.frag");
 
-    // Create terrain
-    Terrain terrain(100, 1.0f, 40.0f, 10.0f);
+    // Create terrain - 扩大地形尺寸
+    Terrain terrain(200, 1.5f, 60.0f, 15.0f);  // 更大的网格和火山
     auto terrainMesh = terrain.GenerateMesh();
 
     // Create skybox
     Skybox skybox;
 
     // Light position
-    glm::vec3 lightPos(100.0f, 100.0f, 100.0f);
+    glm::vec3 lightPos(150.0f, 150.0f, 150.0f);
 
     // Render loop
     while (!glfwWindowShouldClose(window)) {
@@ -96,7 +96,7 @@ int main() {
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 model = glm::mat4(1.0f);
 
-        // 1. 先绘制地形
+        // 1. 渲染地形
         terrainShader.use();
         terrainShader.setMat4("projection", projection);
         terrainShader.setMat4("view", view);
@@ -106,7 +106,7 @@ int main() {
         terrainShader.setVec3("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
         terrainMesh->Draw();
 
-        // 2. 最后绘制天空盒（确保天空盒在最后面）
+        // 2. 最后渲染天空盒（确保天空盒在最后面）
         glDepthFunc(GL_LEQUAL);  // 改变深度函数，使天空盒通过深度测试
         skyboxShader.use();
 
@@ -132,14 +132,19 @@ void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
+    // 增加移动速度以适应更大的地形
+    float cameraSpeed = 2.5f;
+    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+        cameraSpeed = 5.0f;  // 按住Shift加速
+
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        camera.ProcessKeyboard(FORWARD, deltaTime);
+        camera.ProcessKeyboard(FORWARD, deltaTime * cameraSpeed);
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        camera.ProcessKeyboard(BACKWARD, deltaTime);
+        camera.ProcessKeyboard(BACKWARD, deltaTime * cameraSpeed);
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        camera.ProcessKeyboard(LEFT, deltaTime);
+        camera.ProcessKeyboard(LEFT, deltaTime * cameraSpeed);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        camera.ProcessKeyboard(RIGHT, deltaTime);
+        camera.ProcessKeyboard(RIGHT, deltaTime * cameraSpeed);
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
