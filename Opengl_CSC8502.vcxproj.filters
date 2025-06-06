@@ -36,6 +36,9 @@
     <ClCompile Include="Terrain.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="Tree.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h">
@@ -53,6 +56,9 @@
     <ClInclude Include="Terrain.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="Tree.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="terrain.vert">
@@ -65,6 +71,12 @@
       <Filter>资源文件\shaders</Filter>
     </None>
     <None Include="shaders\terrain.frag">
+      <Filter>资源文件\shaders</Filter>
+    </None>
+    <None Include="tree.frag">
+      <Filter>资源文件\shaders</Filter>
+    </None>
+    <None Include="tree.vert">
       <Filter>资源文件\shaders</Filter>
     </None>
   </ItemGroup>

@@ -9,6 +9,7 @@
 #include "Shader.h"
 #include "Terrain.h"
 #include "Skybox.h"
+#include "Tree.h"
 
 // Window settings
 const unsigned int SCR_WIDTH = 1280;
