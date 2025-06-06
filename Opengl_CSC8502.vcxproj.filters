@@ -61,9 +61,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="terrain.vert">
-      <Filter>资源文件\shaders</Filter>
-    </None>
     <None Include="shaders\skybox.frag">
       <Filter>资源文件\shaders</Filter>
     </None>
@@ -73,10 +70,25 @@
     <None Include="shaders\terrain.frag">
       <Filter>资源文件\shaders</Filter>
     </None>
-    <None Include="tree.frag">
+    <None Include="shadow_instance.frag">
       <Filter>资源文件\shaders</Filter>
     </None>
-    <None Include="tree.vert">
+    <None Include="shadow_instance.vert">
+      <Filter>资源文件\shaders</Filter>
+    </None>
+    <None Include="shadow.vert">
+      <Filter>资源文件\shaders</Filter>
+    </None>
+    <None Include="shadow.frag">
+      <Filter>资源文件\shaders</Filter>
+    </None>
+    <None Include="shaders\terrain.vert">
+      <Filter>资源文件\shaders</Filter>
+    </None>
+    <None Include="shaders\tree.frag">
+      <Filter>资源文件\shaders</Filter>
+    </None>
+    <None Include="shaders\tree.vert">
       <Filter>资源文件\shaders</Filter>
     </None>
   </ItemGroup>

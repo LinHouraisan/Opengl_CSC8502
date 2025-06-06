@@ -147,9 +147,13 @@
     <None Include="shaders\skybox.frag" />
     <None Include="shaders\skybox.vert" />
     <None Include="shaders\terrain.frag" />
-    <None Include="terrain.vert" />
-    <None Include="tree.frag" />
-    <None Include="tree.vert" />
+    <None Include="shaders\terrain.vert" />
+    <None Include="shaders\tree.frag" />
+    <None Include="shaders\tree.vert" />
+    <None Include="shadow.frag" />
+    <None Include="shadow.vert" />
+    <None Include="shadow_instance.frag" />
+    <None Include="shadow_instance.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
