@@ -1,4 +1,5 @@
 #include "Tree.h"
+#include "Terrain.h"
 #include <iostream>
 
 Tree::Tree() {
@@ -175,7 +176,7 @@ void Tree::setupMesh() {
     glGenBuffers(1, &instanceVBO);
 }
 
-void Tree::GenerateInstances(int count, float terrainSize, float volcanoRadius) {
+void Tree::GenerateInstances(int count, float terrainSize, float volcanoRadius, Terrain* terrain) {
     instanceMatrices.clear();
     instanceMatrices.reserve(count);
 
@@ -203,8 +204,13 @@ void Tree::GenerateInstances(int count, float terrainSize, float volcanoRadius) 
             continue;
         }
 
-        // 这里简化处理，假设平原高度为0
-        float y = 0.0f;
+        // 获取地形高度
+        float y = terrain->GetHeightAt(x, z);
+
+        // 跳过太高的位置（火山斜坡）
+        if (y > 10.0f) {
+            continue;
+        }
 
         // 创建变换矩阵
         glm::mat4 model = glm::mat4(1.0f);

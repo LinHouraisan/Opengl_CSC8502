@@ -15,7 +15,7 @@
 const unsigned int SCR_WIDTH = 1280;
 const unsigned int SCR_HEIGHT = 720;
 
-// Camera - 调整初始位置以更好地查看火山
+// Camera - 电子初始位置以更好地查看火山
 Camera camera(glm::vec3(60.0f, 40.0f, 60.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
@@ -65,13 +65,19 @@ int main() {
     // Build and compile shaders
     Shader terrainShader("shaders/terrain.vert", "shaders/terrain.frag");
     Shader skyboxShader("shaders/skybox.vert", "shaders/skybox.frag");
-
-    // Create terrain - 适中的地形尺寸，火山口稍小
+    Shader treeShader("shaders/tree.vert", "shaders/tree.frag");
+ 
+    // Create terrain - 缩小的地形尺寸，火山口稍小
     Terrain terrain(150, 1.0f, 45.0f, 10.0f);  // 火山口半径调整为10
     auto terrainMesh = terrain.GenerateMesh();
 
     // Create skybox
     Skybox skybox;
+
+    // 创建树木系统
+    Tree trees;
+    // 生成树木实例，参数：数量，地形大小，火山半径
+    trees.GenerateInstances(500, 150.0f, 45.0f, &terrain);  // 生成500棵树
 
     // Light position
     glm::vec3 lightPos(150.0f, 150.0f, 150.0f);
@@ -107,7 +113,16 @@ int main() {
         terrainShader.setVec3("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
         terrainMesh->Draw();
 
-        // 2. 最后渲染天空盒（确保天空盒在最后面）
+        // 2. 渲染树木
+        treeShader.use();
+        treeShader.setMat4("projection", projection);
+        treeShader.setMat4("view", view);
+        treeShader.setVec3("lightPos", lightPos);
+        treeShader.setVec3("viewPos", camera.Position);
+        treeShader.setVec3("lightColor", glm::vec3(1.0f, 1.0f, 1.0f));
+        trees.DrawInstanced(treeShader);
+
+        // 3. 最后渲染天空盒（确保天空盒在最后面）
         glDepthFunc(GL_LEQUAL);  // 改变深度函数，使天空盒通过深度测试
         skyboxShader.use();
 

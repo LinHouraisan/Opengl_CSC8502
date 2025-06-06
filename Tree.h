@@ -6,13 +6,14 @@
 #include <random>
 #include "Shader.h"
 
+class Terrain;
 class Tree {
 public:
     Tree();
     ~Tree();
 
-    // 生成树木实例位置
-    void GenerateInstances(int count, float terrainSize, float volcanoRadius);
+    // 生成树木实例位置 - 添加 Terrain 参数
+    void GenerateInstances(int count, float terrainSize, float volcanoRadius, Terrain* terrain);
 
     // 绘制所有树木实例
     void DrawInstanced(Shader& shader);
