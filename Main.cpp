@@ -10,6 +10,7 @@
 #include "Terrain.h"
 #include "Skybox.h"
 #include "Tree.h"
+#include "LavaLake.h"
 
 // Window settings
 const unsigned int SCR_WIDTH = 1280;
@@ -84,6 +85,7 @@ int main() {
     Shader treeShader("shaders/tree.vert", "shaders/tree.frag");
     Shader shadowShader("shaders/shadow.vert", "shaders/shadow.frag");
     Shader shadowInstanceShader("shaders/shadow_instance.vert", "shaders/shadow.frag");
+    Shader lavaShader("shaders/lava.vert", "shaders/lava.frag");
 
     // Create terrain
     Terrain terrain(150, 1.0f, 45.0f, 10.0f);
@@ -95,6 +97,8 @@ int main() {
     // Create trees
     Tree trees;
     trees.GenerateInstances(500, 150.0f, 45.0f, &terrain);
+
+    LavaLake lavaLake(8.0f, 64);
 
     // Create shadow map
     unsigned int depthMapFBO = createShadowMap();
@@ -195,7 +199,26 @@ int main() {
         terrainShader.setVec3("viewPos", camera.Position);
         terrainShader.setVec3("lightColor", lightColor);
         terrainShader.setFloat("shadowIntensity", lightColor.r > 0.5f ? 0.8f : 0.3f);
+        terrainShader.setVec3("lavaPos", glm::vec3(0.0f, -7.5f, 0.0f));
+        terrainShader.setVec3("lavaColor", glm::vec3(1.0f, 0.3f, 0.0f));
+        terrainShader.setFloat("time", currentFrame);  // 用于脉动效果
         terrainMesh->Draw();
+
+        // Render lava lake
+        glDepthFunc(GL_LEQUAL);  // 允许深度相等的片段通过
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  // 使用标准透明混合
+
+        lavaShader.use();
+        lavaShader.setMat4("projection", projection);
+        lavaShader.setMat4("view", view);
+        lavaShader.setMat4("model", model);
+        lavaShader.setVec3("viewPos", camera.Position);
+        lavaShader.setFloat("time", currentFrame);
+        lavaLake.Draw(lavaShader, currentFrame);
+
+        glDisable(GL_BLEND);
+        glDepthFunc(GL_LESS);  // 恢复正常深度测试
 
         // Render trees
         treeShader.use();
@@ -206,6 +229,9 @@ int main() {
         treeShader.setVec3("viewPos", camera.Position);
         treeShader.setVec3("lightColor", lightColor);
         treeShader.setFloat("shadowIntensity", lightColor.r > 0.5f ? 0.8f : 0.3f);
+        terrainShader.setVec3("lavaPos", glm::vec3(0.0f, -7.5f, 0.0f));
+        terrainShader.setVec3("lavaColor", glm::vec3(1.0f, 0.3f, 0.0f));
+        terrainShader.setFloat("time", currentFrame);  // 用于脉动效果
         trees.DrawInstanced(treeShader);
 
         // Render skybox last

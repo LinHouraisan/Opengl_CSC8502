@@ -39,6 +39,9 @@
     <ClCompile Include="Tree.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="LavaLake.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h">
@@ -57,6 +60,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="Tree.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="LavaLake.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -89,6 +95,12 @@
       <Filter>资源文件\shaders</Filter>
     </None>
     <None Include="shaders\shadow_instance.vert">
+      <Filter>资源文件\shaders</Filter>
+    </None>
+    <None Include="shaders\lava.frag">
+      <Filter>资源文件\shaders</Filter>
+    </None>
+    <None Include="shaders\lava.vert">
       <Filter>资源文件\shaders</Filter>
     </None>
   </ItemGroup>
