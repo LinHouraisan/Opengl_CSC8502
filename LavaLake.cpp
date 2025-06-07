@@ -1,8 +1,10 @@
 #include "LavaLake.h"
 #include <cmath>
 #include <iostream>
+#include <glm/ext/matrix_transform.hpp>
 
-LavaLake::LavaLake(float radius, int segments) : radius(radius) {
+LavaLake::LavaLake(float radius, int segments)
+    : radius(radius), position(0.0f, 0.0f, 0.0f) {
     setupMesh(segments);
 }
 
@@ -16,9 +18,9 @@ void LavaLake::setupMesh(int segments) {
     std::vector<float> vertices;
     std::vector<unsigned int> indices;
 
-    // 中心顶点
+    // 中心顶点 - 现在位于原点，稍后通过模型矩阵平移
     vertices.push_back(0.0f);  // x
-    vertices.push_back(-7.5f); // y - 稍微提高一点避免深度冲突
+    vertices.push_back(0.0f);  // y
     vertices.push_back(0.0f);  // z
     vertices.push_back(0.0f);  // normal x
     vertices.push_back(1.0f);  // normal y
@@ -33,7 +35,7 @@ void LavaLake::setupMesh(int segments) {
         float z = radius * sin(angle);
 
         vertices.push_back(x);
-        vertices.push_back(-7.5f); // 深度保持一致
+        vertices.push_back(0.0f);
         vertices.push_back(z);
         vertices.push_back(0.0f);  // normal x
         vertices.push_back(1.0f);  // normal y
@@ -83,6 +85,12 @@ void LavaLake::setupMesh(int segments) {
 
 void LavaLake::Draw(Shader& shader, float time) {
     shader.setFloat("time", time);
+
+    // 创建模型矩阵，将岩浆湖平移到正确位置
+    glm::mat4 model = glm::mat4(1.0f);
+    model = glm::translate(model, position);
+    shader.setMat4("model", model);
+
     glBindVertexArray(VAO);
     glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);

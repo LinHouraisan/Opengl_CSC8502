@@ -91,14 +91,20 @@ int main() {
     Terrain terrain(150, 1.0f, 45.0f, 10.0f);
     auto terrainMesh = terrain.GenerateMesh();
 
+    float craterHeight = terrain.GetHeightAt(0.0f, 0.0f);
+    std::cout << "Crater height at center: " << craterHeight << std::endl;
+
+    // Create lava lake and position it at the crater
+    LavaLake lavaLake(8.0f, 64);
+    // 将岩浆湖放置在火山口底部，稍微高一点避免z-fighting
+    lavaLake.SetPosition(glm::vec3(0.0f, craterHeight + 0.5f, 0.0f));
+
     // Create skybox
     Skybox skybox;
 
     // Create trees
     Tree trees;
     trees.GenerateInstances(500, 150.0f, 45.0f, &terrain);
-
-    LavaLake lavaLake(8.0f, 64);
 
     // Create shadow map
     unsigned int depthMapFBO = createShadowMap();
@@ -212,13 +218,17 @@ int main() {
         lavaShader.use();
         lavaShader.setMat4("projection", projection);
         lavaShader.setMat4("view", view);
-        lavaShader.setMat4("model", model);
         lavaShader.setVec3("viewPos", camera.Position);
         lavaShader.setFloat("time", currentFrame);
         lavaLake.Draw(lavaShader, currentFrame);
 
         glDisable(GL_BLEND);
         glDepthFunc(GL_LESS);  // 恢复正常深度测试
+
+        // 更新地形着色器的岩浆位置
+        glm::vec3 lavaPos = lavaLake.GetPosition();
+        terrainShader.setVec3("lavaPos", lavaPos);
+        treeShader.setVec3("lavaPos", lavaPos);
 
         // Render trees
         treeShader.use();

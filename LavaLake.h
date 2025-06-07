@@ -10,11 +10,14 @@ public:
     ~LavaLake();
 
     void Draw(Shader& shader, float time);
+    void SetPosition(const glm::vec3& pos) { position = pos; }
+    glm::vec3 GetPosition() const { return position; }
 
 private:
     unsigned int VAO, VBO, EBO;
     unsigned int indexCount;
     float radius;
+    glm::vec3 position;
 
     void setupMesh(int segments);
 };
