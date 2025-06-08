@@ -11,6 +11,7 @@
 #include "Skybox.h"
 #include "Tree.h"
 #include "LavaLake.h"
+#include "LavaFlow.h"
 
 // Window settings
 const unsigned int SCR_WIDTH = 1280;
@@ -86,6 +87,7 @@ int main() {
     Shader shadowShader("shaders/shadow.vert", "shaders/shadow.frag");
     Shader shadowInstanceShader("shaders/shadow_instance.vert", "shaders/shadow.frag");
     Shader lavaShader("shaders/lava.vert", "shaders/lava.frag");
+    Shader lavaFlowShader("shaders/lava_flow.vert", "shaders/lava_flow.frag");
 
     // Create terrain
     Terrain terrain(150, 1.0f, 45.0f, 10.0f);
@@ -98,6 +100,12 @@ int main() {
     LavaLake lavaLake(8.0f, 64);
     // 将岩浆湖放置在火山口底部，稍微高一点避免z-fighting
     lavaLake.SetPosition(glm::vec3(0.0f, craterHeight + 2.0f, 0.0f));
+
+    // Create lava flow system
+    LavaFlow lavaFlow(&terrain, 0.8f);
+
+    // Store lava flow pointer in window user pointer for input handling
+    glfwSetWindowUserPointer(window, &lavaFlow);
 
     // Create skybox
     Skybox skybox;
@@ -154,6 +162,9 @@ int main() {
             if (timeOfDay > 1.0f) timeOfDay -= 1.0f;
             if (timeOfDay < 0.0f) timeOfDay += 1.0f;
         }
+
+        // Update lava flow
+        lavaFlow.Update(deltaTime);
 
         // Input
         processInput(window);
@@ -230,6 +241,20 @@ int main() {
         terrainShader.setVec3("lavaPos", lavaPos);
         treeShader.setVec3("lavaPos", lavaPos);
 
+        // Render lava flow particles
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_ONE, GL_ONE);  // 加法混合，让岩浆发光
+
+        lavaFlowShader.use();
+        lavaFlowShader.setMat4("projection", projection);
+        lavaFlowShader.setMat4("view", view);
+        lavaFlowShader.setVec3("viewPos", camera.Position);
+        lavaFlowShader.setFloat("time", currentFrame);
+        lavaFlow.Draw(lavaFlowShader, currentFrame);
+
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDisable(GL_BLEND);
+
         // Render trees
         treeShader.use();
         treeShader.setMat4("projection", projection);
@@ -303,6 +328,24 @@ void processInput(GLFWwindow* window) {
     }
     if (glfwGetKey(window, GLFW_KEY_T) == GLFW_RELEASE) {
         tKeyPressed = false;
+    }
+
+    // Lava flow control
+    static bool yKeyPressed = false;
+    if (glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS && !yKeyPressed) {
+        yKeyPressed = true;
+        LavaFlow* lavaFlow = static_cast<LavaFlow*>(glfwGetWindowUserPointer(window));
+        if (lavaFlow) {
+            if (lavaFlow->IsFlowing()) {
+                lavaFlow->StopFlow();
+            }
+            else {
+                lavaFlow->StartFlow();
+            }
+        }
+    }
+    if (glfwGetKey(window, GLFW_KEY_Y) == GLFW_RELEASE) {
+        yKeyPressed = false;
     }
 
     // Manual time control

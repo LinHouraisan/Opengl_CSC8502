@@ -14,6 +14,9 @@ public:
     // Get height at specific position
     float GetHeightAt(float x, float z);
 
+    // Calculate normal from neighboring heights (made public for LavaFlow)
+    glm::vec3 calculateNormal(float x, float z);
+
 private:
     int gridSize;
     float gridScale;
@@ -25,7 +28,4 @@ private:
 
     // Simple noise function
     float noise(float x, float y);
-
-    // Calculate normal from neighboring heights
-    glm::vec3 calculateNormal(float x, float z);
 };

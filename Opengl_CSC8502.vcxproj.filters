@@ -42,6 +42,9 @@
     <ClCompile Include="LavaLake.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="LavaFlow.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h">
@@ -63,6 +66,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="LavaLake.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="LavaFlow.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -101,6 +107,12 @@
       <Filter>资源文件\shaders</Filter>
     </None>
     <None Include="shaders\lava.vert">
+      <Filter>资源文件\shaders</Filter>
+    </None>
+    <None Include="shaders\lava_flow.frag">
+      <Filter>资源文件\shaders</Filter>
+    </None>
+    <None Include="shaders\lava_flow.vert">
       <Filter>资源文件\shaders</Filter>
     </None>
   </ItemGroup>
