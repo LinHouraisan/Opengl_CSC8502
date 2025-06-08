@@ -7,11 +7,17 @@
 
 LavaFlow::LavaFlow(Terrain* terrain, float particleSize)
     : terrain(terrain), particleSize(particleSize), isFlowing(false),
-    flowRate(10.0f), emissionTimer(0.0f), maxParticles(2000) {
+    flowRate(15.0f), emissionTimer(0.0f), maxParticles(3000) {
 
-    // 设置发射中心在火山口
-    emissionCenter = glm::vec3(0.0f, terrain->GetHeightAt(0.0f, 0.0f) + 2.0f, 0.0f);
-    emissionRadius = 5.0f;
+    // 设置发射中心在火山口边缘（稍微偏离中心，让岩浆从火山口缺口流出）
+    float craterRadius = 8.0f; // 火山口半径
+    float angle = 0.0f; // 朝北方向，与地形中的沟渠对齐
+    float x = craterRadius * cos(angle);
+    float z = craterRadius * sin(angle);
+    float height = terrain->GetHeightAt(x, z);
+
+    emissionCenter = glm::vec3(x, height + 1.0f, z);
+    emissionRadius = 3.0f;
 
     // 初始化粒子池
     particles.resize(maxParticles);
@@ -68,26 +74,29 @@ void LavaFlow::emitParticle() {
         if (!particle.active) {
             static std::random_device rd;
             static std::mt19937 gen(rd());
-            static std::uniform_real_distribution<float> angleDist(0.0f, 2.0f * 3.14159f);
+            static std::uniform_real_distribution<float> angleDist(-0.3f, 0.3f); // 限制角度范围
             static std::uniform_real_distribution<float> radiusDist(0.0f, 1.0f);
-            static std::uniform_real_distribution<float> speedDist(0.5f, 2.0f);
+            static std::uniform_real_distribution<float> speedDist(2.0f, 4.0f);
 
-            // 在火山口附近随机位置生成
-            float angle = angleDist(gen);
+            // 在发射点附近随机位置生成
+            float angleOffset = angleDist(gen);
             float r = radiusDist(gen) * emissionRadius;
 
             particle.position = emissionCenter + glm::vec3(
-                r * cos(angle),
-                0.0f,
-                r * sin(angle)
+                r * cos(angleOffset),
+                radiusDist(gen) * 0.5f, // 稍微随机化高度
+                r * sin(angleOffset)
             );
 
-            // 初始速度：稍微向外和向下
+            // 初始速度：主要向火山外侧和向下
             float speed = speedDist(gen);
+            // 计算远离火山中心的方向
+            glm::vec3 awayFromCenter = glm::normalize(particle.position - glm::vec3(0.0f, particle.position.y, 0.0f));
+
             particle.velocity = glm::vec3(
-                speed * cos(angle),
-                -1.0f,
-                speed * sin(angle)
+                awayFromCenter.x * speed,
+                -2.0f - radiusDist(gen), // 增加向下的初始速度
+                awayFromCenter.z * speed
             );
 
             particle.temperature = 1.0f;
@@ -104,7 +113,7 @@ void LavaFlow::updateParticle(LavaParticle& particle, float deltaTime) {
     particle.lifetime += deltaTime;
 
     // 温度随时间降低
-    particle.temperature = std::max(0.0f, 1.0f - particle.lifetime * 0.05f);
+    particle.temperature = std::max(0.0f, 1.0f - particle.lifetime * 0.02f); // 减慢冷却速度
 
     // 应用重力
     particle.velocity.y -= 9.8f * deltaTime;
@@ -126,33 +135,29 @@ void LavaFlow::updateParticle(LavaParticle& particle, float deltaTime) {
         float dotProduct = glm::dot(particle.velocity, normal);
         particle.velocity = particle.velocity - normal * dotProduct;
 
-        // 添加沿坡面向下的力
+        // 添加沿坡面向下的力 - 增强下坡流动
         glm::vec3 downSlope = glm::vec3(0.0f, -1.0f, 0.0f) - normal * glm::dot(glm::vec3(0.0f, -1.0f, 0.0f), normal);
         downSlope = glm::normalize(downSlope);
-        particle.velocity += downSlope * 5.0f * deltaTime;
+        particle.velocity += downSlope * 8.0f * deltaTime; // 增加下坡力
 
         // 应用摩擦力
-        particle.velocity *= 0.95f;
+        particle.velocity *= 0.92f; // 减少摩擦
 
         // 限制最大速度
         float speed = glm::length(particle.velocity);
-        if (speed > 10.0f) {
-            particle.velocity = (particle.velocity / speed) * 10.0f;
+        if (speed > 15.0f) {
+            particle.velocity = (particle.velocity / speed) * 15.0f;
         }
     }
 
     particle.position = newPos;
 
-    // 停止条件
-    // 1. 温度太低（冷却）
-    // 2. 速度太慢
-    // 3. 到达平原（高度接近0）
-    // 4. 超出生命周期
+    // 停止条件 - 调整条件让岩浆流得更远
     float speed = glm::length(particle.velocity);
-    if (particle.temperature <= 0.1f ||
-        speed < 0.1f ||
-        terrainHeight < 2.0f ||  // 在平原附近停止
-        particle.lifetime > 60.0f) {
+    if (particle.temperature <= 0.05f ||      // 温度极低
+        speed < 0.05f ||                       // 速度极慢
+        (terrainHeight < 1.0f && speed < 0.2f) || // 在平原上且速度很慢
+        particle.lifetime > 120.0f) {          // 延长生命周期
         particle.active = false;
     }
 }

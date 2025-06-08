@@ -103,6 +103,7 @@ int main() {
 
     // Create lava flow system
     LavaFlow lavaFlow(&terrain, 0.8f);
+    lavaFlow.StartFlow();
 
     // Store lava flow pointer in window user pointer for input handling
     glfwSetWindowUserPointer(window, &lavaFlow);

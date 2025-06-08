@@ -9,7 +9,7 @@
 struct LavaParticle {
     glm::vec3 position;
     glm::vec3 velocity;
-    float temperature; // 1.0 = 最热，0.0 = 冷却
+    float temperature; // 1.0 = 炽热，0.0 = 冷却
     float lifetime;
     bool active;
 };
@@ -29,6 +29,9 @@ public:
 
     // 渲染岩浆流
     void Draw(Shader& shader, float time);
+
+    // 设置发射位置（用于动态调整火山口位置）
+    void SetEmissionCenter(const glm::vec3& center) { emissionCenter = center; }
 
 private:
     Terrain* terrain;
@@ -53,8 +56,7 @@ private:
 
     // 创建球体网格
     void setupMesh();
-    void createSphere(std::vector<float>& vertices, std::vector<unsigned int>& indices,
-        float radius, int latSegments, int lonSegments);
+    void createSphere(std::vector<float>& vertices, std::vector<unsigned int>& indices, float radius, int latSegments, int lonSegments);
 
     // 发射新粒子
     void emitParticle();
