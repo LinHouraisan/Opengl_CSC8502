@@ -90,25 +90,29 @@ float Terrain::generateVolcanoHeight(float x, float z) {
         // 计算角度用于径向特征
         float angle = atan2(z, x);
 
-        // 添加8条水流冲刷的沟壑（凹陷）
-        float grooveDepth = 0.0f;
-        for (int i = 0; i < 8; i++) {
-            float grooveAngle = (float)i * 6.28318f / 8.0f;
-            float angleDiff = angle - grooveAngle;
-
-            // 归一化角度差
-            while (angleDiff > 3.14159f) angleDiff -= 6.28318f;
-            while (angleDiff < -3.14159f) angleDiff += 6.28318f;
-
-            if (fabs(angleDiff) < 0.15f) {
-                float grooveStrength = 1.0f - fabs(angleDiff) / 0.15f;
-                // 沟壑从山顶到山底，深度逐渐变浅
-                float depthFactor = 1.0f - t * 0.5f;
-                grooveDepth = fmax(grooveDepth, grooveStrength * 3.0f * depthFactor);
-            }
+        // 创建火山口遮罩：在火山口区域内减少或消除噪声
+        float craterMask = 1.0f;
+        if (distance < craterRadius * 1.2f) {  // 稍微扩大遮罩范围
+            craterMask = glm::smoothstep(0.0f, 1.0f, distance / (craterRadius * 1.2f));
         }
 
-        // 添加4条山脊（凸起，梯形）
+        // 添加1条水流冲刷的沟渠（朝向正北方向）
+        float grooveDepth = 0.0f;
+        float grooveAngle = 0.0f;  // 正北方向
+        float angleDiff = angle - grooveAngle;
+
+        // 归一化角度差
+        while (angleDiff > 3.14159f) angleDiff -= 6.28318f;
+        while (angleDiff < -3.14159f) angleDiff += 6.28318f;
+
+        if (fabs(angleDiff) < 0.15f) {
+            float grooveStrength = 1.0f - fabs(angleDiff) / 0.15f;
+            // 沟渠从山顶到山底，深度逐渐变浅
+            float depthFactor = 1.0f - t * 0.5f;
+            grooveDepth = grooveStrength * 3.0f * depthFactor * craterMask;  // 应用遮罩
+        }
+
+        // 添加4条山脊（突起，提供结构）
         float ridgeHeight = 0.0f;
         for (int i = 0; i < 4; i++) {
             float ridgeAngle = (float)i * 6.28318f / 4.0f + 0.39269f; // 偏移45度
@@ -119,7 +123,7 @@ float Terrain::generateVolcanoHeight(float x, float z) {
             while (angleDiff < -3.14159f) angleDiff += 6.28318f;
 
             if (fabs(angleDiff) < 0.25f) {
-                // 梯形轮廓
+                // 提供支撑
                 float ridgeStrength;
                 if (fabs(angleDiff) < 0.1f) {
                     ridgeStrength = 1.0f; // 顶部平坦
@@ -129,48 +133,41 @@ float Terrain::generateVolcanoHeight(float x, float z) {
                 }
                 // 山脊从山顶到山底，高度逐渐降低
                 float heightFactor = 1.0f - t * 0.6f;
-                ridgeHeight = fmax(ridgeHeight, ridgeStrength * 4.0f * heightFactor);
+                ridgeHeight = fmax(ridgeHeight, ridgeStrength * 4.0f * heightFactor * craterMask);  // 应用遮罩
             }
         }
 
-        // 应用沟壑和山脊
+        // 应用沟渠和山脊（使用遮罩减少对火山口的影响）
         baseHeight = baseHeight - grooveDepth + ridgeHeight;
 
-        // 添加表面颗粒感
-        float granularity = noise(x * 0.5f, z * 0.5f) * 0.5f;
-        granularity += noise(x * 1.0f, z * 1.0f) * 0.25f;
+        // 添加表面颗粒感（应用遮罩）
+        float granularity = noise(x * 0.5f, z * 0.5f) * 0.5f * craterMask;
+        granularity += noise(x * 1.0f, z * 1.0f) * 0.25f * craterMask;
         baseHeight += granularity;
 
         // 火山口 - 浅碗型结构
         if (distance < craterRadius) {
             float craterT = distance / craterRadius;
 
-            // 创建基本的浅碗型
-            float bowlDepth = 3.0f * (1.0f - craterT * craterT);  // 使用平方函数创建平滑的碗型
-            baseHeight -= bowlDepth;
+            // 清除之前的高度，创建干净的碗型
+            baseHeight = 0.0f;
 
-            // 火山口边缘稍微抬高一点，形成自然的边缘
-            if (craterT > 0.7f) {
-                float edgeT = (craterT - 0.7f) / 0.3f;
-                float edgeHeight = 2.0f * edgeT * (1.0f - edgeT * edgeT);
-                baseHeight += edgeHeight;
+            // 创建平滑的浅碗型
+            float bowlDepth = 2.5f * sqrt(1.0f - craterT * craterT);  // 使用圆形函数创建碗型
+            baseHeight = 30.0f - bowlDepth;  // 从火山口边缘高度开始下降
+
+            // 火山口边缘的小幅隆起
+            if (craterT > 0.8f) {
+                float rimT = (craterT - 0.8f) / 0.2f;
+                float rimHeight = 1.5f * rimT * (1.0f - rimT);
+                baseHeight += rimHeight;
             }
 
-            // 8条水流侵蚀沟在火山口边缘形成缺口
-            for (int i = 0; i < 8; i++) {
-                float grooveAngle = (float)i * 6.28318f / 8.0f;
-                float angleDiff = angle - grooveAngle;
-
-                // 归一化角度差
-                while (angleDiff > 3.14159f) angleDiff -= 6.28318f;
-                while (angleDiff < -3.14159f) angleDiff += 6.28318f;
-
-                if (fabs(angleDiff) < 0.15f && craterT > 0.5f) {
-                    float grooveStrength = 1.0f - fabs(angleDiff) / 0.15f;
-                    // 在火山口边缘创建缺口，让岩浆可以流出
-                    float notchDepth = grooveStrength * 2.0f * (craterT - 0.5f) / 0.5f;
-                    baseHeight -= notchDepth;
-                }
+            // 在火山口边缘创建一个缺口（用于岩浆流出）
+            if (fabs(angle) < 0.2f && craterT > 0.7f) {  // 正北方向的缺口
+                float notchStrength = 1.0f - fabs(angle) / 0.2f;
+                float notchDepth = notchStrength * 2.0f * (craterT - 0.7f) / 0.3f;
+                baseHeight -= notchDepth;
             }
         }
 
