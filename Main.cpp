@@ -97,7 +97,7 @@ int main() {
     // Create lava lake and position it at the crater
     LavaLake lavaLake(8.0f, 64);
     // 将岩浆湖放置在火山口底部，稍微高一点避免z-fighting
-    lavaLake.SetPosition(glm::vec3(0.0f, craterHeight + 0.5f, 0.0f));
+    lavaLake.SetPosition(glm::vec3(0.0f, craterHeight + 2.0f, 0.0f));
 
     // Create skybox
     Skybox skybox;
