@@ -141,26 +141,36 @@ float Terrain::generateVolcanoHeight(float x, float z) {
         granularity += noise(x * 1.0f, z * 1.0f) * 0.25f;
         baseHeight += granularity;
 
-        // 火山口 - 圆柱形环状结构
+        // 火山口 - 浅碗型结构
         if (distance < craterRadius) {
             float craterT = distance / craterRadius;
 
-            // 火山口是一个圆环形的"支撑"
-            if (craterT > 0.6f) {
-                // 火山口环的外壁
-                float rimT = (craterT - 0.6f) / 0.4f;
-                float rimHeight = 5.0f * (1.0f - rimT * rimT);
+            // 创建基本的浅碗型
+            float bowlDepth = 3.0f * (1.0f - craterT * craterT);  // 使用平方函数创建平滑的碗型
+            baseHeight -= bowlDepth;
 
-                // 边缘起伏
-                float rimVariation = sin(angle * 7.0f) * 1.0f;
-                rimVariation += noise(x * 0.3f, z * 0.3f) * 1.5f;
-
-                baseHeight += rimHeight + rimVariation;
+            // 火山口边缘稍微抬高一点，形成自然的边缘
+            if (craterT > 0.7f) {
+                float edgeT = (craterT - 0.7f) / 0.3f;
+                float edgeHeight = 2.0f * edgeT * (1.0f - edgeT * edgeT);
+                baseHeight += edgeHeight;
             }
-            else {
-                // 火山口内部凹陷
-                float innerDepth = 8.0f * (1.0f - craterT / 0.6f);
-                baseHeight -= innerDepth;
+
+            // 8条水流侵蚀沟在火山口边缘形成缺口
+            for (int i = 0; i < 8; i++) {
+                float grooveAngle = (float)i * 6.28318f / 8.0f;
+                float angleDiff = angle - grooveAngle;
+
+                // 归一化角度差
+                while (angleDiff > 3.14159f) angleDiff -= 6.28318f;
+                while (angleDiff < -3.14159f) angleDiff += 6.28318f;
+
+                if (fabs(angleDiff) < 0.15f && craterT > 0.5f) {
+                    float grooveStrength = 1.0f - fabs(angleDiff) / 0.15f;
+                    // 在火山口边缘创建缺口，让岩浆可以流出
+                    float notchDepth = grooveStrength * 2.0f * (craterT - 0.5f) / 0.5f;
+                    baseHeight -= notchDepth;
+                }
             }
         }
 
