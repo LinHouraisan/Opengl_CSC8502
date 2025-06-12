@@ -9,6 +9,7 @@
 struct LavaParticle {
     glm::vec3 position;
     glm::vec3 velocity;
+    glm::vec3 previousPosition;  // 用于计算拉伸方向
     float temperature; // 1.0 = 炽热，0.0 = 冷却
     float lifetime;
     bool active;

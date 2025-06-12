@@ -2,16 +2,17 @@
 #include <algorithm>
 #include <random>
 #include <iostream>
-#include <cstring>  // for memcpy
+#include <cstring>
 #include <glm/ext/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 LavaFlow::LavaFlow(Terrain* terrain, float particleSize)
     : terrain(terrain), particleSize(particleSize), isFlowing(false),
-    flowRate(15.0f), emissionTimer(0.0f), maxParticles(3000) {
+    flowRate(8.0f), emissionTimer(0.0f), maxParticles(200) {  // 适中的发射频率
 
-    // 设置发射中心在火山口边缘（稍微偏离中心，让岩浆从火山口缺口流出）
-    float craterRadius = 8.0f; // 火山口半径
-    float angle = 0.0f; // 朝北方向，与地形中的沟渠对齐
+    // 初始发射中心在火山口边缘（朝北方向）
+    float craterRadius = 8.0f;
+    float angle = 0.0f; // 朝北方向
     float x = craterRadius * cos(angle);
     float z = craterRadius * sin(angle);
     float height = terrain->GetHeightAt(x, z);
@@ -74,9 +75,9 @@ void LavaFlow::emitParticle() {
         if (!particle.active) {
             static std::random_device rd;
             static std::mt19937 gen(rd());
-            static std::uniform_real_distribution<float> angleDist(-0.3f, 0.3f); // 限制角度范围
+            static std::uniform_real_distribution<float> angleDist(-0.3f, 0.3f);
             static std::uniform_real_distribution<float> radiusDist(0.0f, 1.0f);
-            static std::uniform_real_distribution<float> speedDist(2.0f, 4.0f);
+            static std::uniform_real_distribution<float> speedDist(3.0f, 6.0f);
 
             // 在发射点附近随机位置生成
             float angleOffset = angleDist(gen);
@@ -84,18 +85,19 @@ void LavaFlow::emitParticle() {
 
             particle.position = emissionCenter + glm::vec3(
                 r * cos(angleOffset),
-                radiusDist(gen) * 0.5f, // 稍微随机化高度
+                radiusDist(gen) * 0.5f,
                 r * sin(angleOffset)
             );
 
+            particle.previousPosition = particle.position;
+
             // 初始速度：主要向火山外侧和向下
             float speed = speedDist(gen);
-            // 计算远离火山中心的方向
             glm::vec3 awayFromCenter = glm::normalize(particle.position - glm::vec3(0.0f, particle.position.y, 0.0f));
 
             particle.velocity = glm::vec3(
                 awayFromCenter.x * speed,
-                -2.0f - radiusDist(gen), // 增加向下的初始速度
+                -2.0f - radiusDist(gen),
                 awayFromCenter.z * speed
             );
 
@@ -109,11 +111,14 @@ void LavaFlow::emitParticle() {
 }
 
 void LavaFlow::updateParticle(LavaParticle& particle, float deltaTime) {
+    // 保存前一帧位置
+    particle.previousPosition = particle.position;
+
     // 更新生命周期
     particle.lifetime += deltaTime;
 
     // 温度随时间降低
-    particle.temperature = std::max(0.0f, 1.0f - particle.lifetime * 0.02f); // 减慢冷却速度
+    particle.temperature = std::max(0.0f, 1.0f - particle.lifetime * 0.02f);
 
     // 应用重力
     particle.velocity.y -= 9.8f * deltaTime;
@@ -135,13 +140,13 @@ void LavaFlow::updateParticle(LavaParticle& particle, float deltaTime) {
         float dotProduct = glm::dot(particle.velocity, normal);
         particle.velocity = particle.velocity - normal * dotProduct;
 
-        // 添加沿坡面向下的力 - 增强下坡流动
+        // 添加沿斜坡向下的力
         glm::vec3 downSlope = glm::vec3(0.0f, -1.0f, 0.0f) - normal * glm::dot(glm::vec3(0.0f, -1.0f, 0.0f), normal);
         downSlope = glm::normalize(downSlope);
-        particle.velocity += downSlope * 8.0f * deltaTime; // 增加下坡力
+        particle.velocity += downSlope * 8.0f * deltaTime;
 
         // 应用摩擦力
-        particle.velocity *= 0.92f; // 减少摩擦
+        particle.velocity *= 0.92f;
 
         // 限制最大速度
         float speed = glm::length(particle.velocity);
@@ -152,12 +157,12 @@ void LavaFlow::updateParticle(LavaParticle& particle, float deltaTime) {
 
     particle.position = newPos;
 
-    // 停止条件 - 调整条件让岩浆流得更远
+    // 停止条件
     float speed = glm::length(particle.velocity);
-    if (particle.temperature <= 0.05f ||      // 温度极低
-        speed < 0.05f ||                       // 速度极慢
-        (terrainHeight < 1.0f && speed < 0.2f) || // 在平原上且速度很慢
-        particle.lifetime > 120.0f) {          // 延长生命周期
+    if (particle.temperature <= 0.05f ||
+        speed < 0.05f ||
+        (terrainHeight < 1.0f && speed < 0.2f) ||
+        particle.lifetime > 120.0f) {
         particle.active = false;
     }
 }
@@ -167,13 +172,61 @@ void LavaFlow::updateInstanceBuffer() {
 
     for (const auto& particle : particles) {
         if (particle.active) {
-            // 创建变换矩阵
+            // 计算运动方向
+            glm::vec3 direction = particle.position - particle.previousPosition;
+            float distance = glm::length(direction);
+
+            // 创建基础变换矩阵
             glm::mat4 model = glm::mat4(1.0f);
             model = glm::translate(model, particle.position);
 
-            // 根据温度调整大小
-            float scale = particleSize * (0.5f + 0.5f * particle.temperature);
-            model = glm::scale(model, glm::vec3(scale));
+            // 如果粒子在运动，根据速度拉伸
+            if (distance > 0.001f) {
+                direction = glm::normalize(direction);
+
+                // 计算速度的大小（使用实际速度而不是帧间距离）
+                float speed = glm::length(particle.velocity);
+
+                // 计算拉伸因子（速度越快，拉伸越长）
+                float stretchFactor = 1.0f + speed * 0.2f;  // 最多拉伸到原来的4倍
+                stretchFactor = std::min(stretchFactor, 4.0f);
+
+                // 使用速度方向而不是位移方向
+                glm::vec3 velocityDir = glm::normalize(particle.velocity);
+
+                // 计算旋转四元数，将球体的Y轴对齐到运动方向
+                glm::vec3 up(0.0f, 1.0f, 0.0f);
+                float dot = glm::dot(up, velocityDir);
+
+                if (std::abs(dot - 1.0f) < 0.0001f) {
+                    // 已经对齐，不需要旋转
+                }
+                else if (std::abs(dot + 1.0f) < 0.0001f) {
+                    // 完全相反，旋转180度
+                    glm::vec3 axis(1.0f, 0.0f, 0.0f);
+                    model = glm::rotate(model, glm::radians(180.0f), axis);
+                }
+                else {
+                    // 一般情况，计算旋转轴和角度
+                    glm::vec3 axis = glm::normalize(glm::cross(up, velocityDir));
+                    float angle = std::acos(dot);
+                    model = glm::rotate(model, angle, axis);
+                }
+
+                // 应用拉伸：Y轴（运动方向）拉伸，XZ轴稍微压缩
+                float baseScale = particleSize * (0.5f + 0.5f * particle.temperature);
+                float compressFactor = 1.0f / sqrt(stretchFactor);  // 保持体积大致不变
+                model = glm::scale(model, glm::vec3(
+                    baseScale * compressFactor,
+                    baseScale * stretchFactor,
+                    baseScale * compressFactor
+                ));
+            }
+            else {
+                // 静止或移动很慢的粒子保持球形
+                float scale = particleSize * (0.5f + 0.5f * particle.temperature);
+                model = glm::scale(model, glm::vec3(scale));
+            }
 
             activeTransforms.push_back(model);
         }
@@ -201,8 +254,8 @@ void LavaFlow::setupMesh() {
     std::vector<float> vertices;
     std::vector<unsigned int> indices;
 
-    // 创建低多边形球体
-    createSphere(vertices, indices, 1.0f, 8, 16);
+    // 创建球体，增加纵向分段以获得更好的拉伸效果
+    createSphere(vertices, indices, 1.0f, 16, 16);  // 增加分段数
     indexCount = indices.size();
 
     // 创建VAO/VBO/EBO
