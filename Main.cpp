@@ -35,7 +35,7 @@ float lastFrame = 0.0f;
 // Day/Night cycle
 float timeOfDay = 0.0f; // 0.0 = noon, 0.5 = sunset/sunrise, 1.0 = midnight
 bool isTransitioning = false;
-float transitionSpeed = 0.5f; // 过渡速度
+float transitionSpeed = 0.5f;
 float targetTimeOfDay = 0.0f;
 
 // Callbacks
@@ -58,7 +58,7 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // Create window
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Realistic Volcano with Day/Night Cycle", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Realistic Volcano with Eruption System", NULL, NULL);
     if (window == NULL) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -100,14 +100,14 @@ int main() {
 
     // Create lava lake and position it at the crater
     LavaLake lavaLake(8.0f, 64);
-    // 将岩浆湖放置在火山口底部，稍微高一点避免z-fighting
     lavaLake.SetPosition(glm::vec3(0.0f, craterHeight + 2.0f, 0.0f));
 
     // Create lava bubbles system
     LavaBubbles lavaBubbles(lavaLake.GetPosition(), 8.0f, 40);
 
-    // Create lava flow system
+    // Create enhanced lava flow system with multiple emitters
     LavaFlow lavaFlow(&terrain, 0.8f);
+    lavaFlow.SetLakeCenter(lavaLake.GetPosition());
     lavaFlow.StartFlow();
 
     // Store lava flow pointer in window user pointer for input handling
@@ -145,6 +145,17 @@ int main() {
     terrainShader.setInt("shadowMap", 1);
     treeShader.use();
     treeShader.setInt("shadowMap", 1);
+
+    // Print controls
+    std::cout << "\n=== VOLCANO ERUPTION CONTROLS ===" << std::endl;
+    std::cout << "WASD - Move camera" << std::endl;
+    std::cout << "Mouse - Look around" << std::endl;
+    std::cout << "Shift - Move faster" << std::endl;
+    std::cout << "T - Toggle day/night cycle" << std::endl;
+    std::cout << "Y - Toggle lava flow on/off" << std::endl;
+    std::cout << "E - Trigger volcanic eruption!" << std::endl;
+    std::cout << "1-4 - Set time of day (noon/afternoon/sunset/night)" << std::endl;
+    std::cout << "================================\n" << std::endl;
 
     // Render loop
     while (!glfwWindowShouldClose(window)) {
@@ -227,13 +238,13 @@ int main() {
         terrainShader.setFloat("shadowIntensity", lightColor.r > 0.5f ? 0.8f : 0.3f);
         terrainShader.setVec3("lavaPos", glm::vec3(0.0f, -7.5f, 0.0f));
         terrainShader.setVec3("lavaColor", glm::vec3(1.0f, 0.3f, 0.0f));
-        terrainShader.setFloat("time", currentFrame);  // 用于脉动效果
+        terrainShader.setFloat("time", currentFrame);
         terrainMesh->Draw();
 
         // Render lava lake
-        glDepthFunc(GL_LEQUAL);  // 允许深度相等的片段通过
+        glDepthFunc(GL_LEQUAL);
         glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);  // 使用标准透明混合
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         lavaShader.use();
         lavaShader.setMat4("projection", projection);
@@ -243,12 +254,12 @@ int main() {
         lavaLake.Draw(lavaShader, currentFrame);
 
         glDisable(GL_BLEND);
-        glDepthFunc(GL_LESS);  // 恢复正常深度测试
+        glDepthFunc(GL_LESS);
 
-        // Render lava bubbles - 在岩浆湖之后渲染
+        // Render lava bubbles
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glEnable(GL_CULL_FACE);  // 启用背面剔除提高性能
+        glEnable(GL_CULL_FACE);
         glCullFace(GL_BACK);
 
         bubbleShader.use();
@@ -261,14 +272,14 @@ int main() {
         glDisable(GL_CULL_FACE);
         glDisable(GL_BLEND);
 
-        // 更新地形着色器的岩浆位置
+        // Update terrain shader's lava position
         glm::vec3 lavaPos = lavaLake.GetPosition();
         terrainShader.setVec3("lavaPos", lavaPos);
         treeShader.setVec3("lavaPos", lavaPos);
 
-        // Render lava flow particles
+        // Render lava flow particles with enhanced effects
         glEnable(GL_BLEND);
-        glBlendFunc(GL_ONE, GL_ONE);  // 加法混合，让岩浆发光
+        glBlendFunc(GL_ONE, GL_ONE);  // Additive blending for glow
 
         lavaFlowShader.use();
         lavaFlowShader.setMat4("projection", projection);
@@ -289,9 +300,6 @@ int main() {
         treeShader.setVec3("viewPos", camera.Position);
         treeShader.setVec3("lightColor", lightColor);
         treeShader.setFloat("shadowIntensity", lightColor.r > 0.5f ? 0.8f : 0.3f);
-        terrainShader.setVec3("lavaPos", glm::vec3(0.0f, -7.5f, 0.0f));
-        terrainShader.setVec3("lavaColor", glm::vec3(1.0f, 0.3f, 0.0f));
-        terrainShader.setFloat("time", currentFrame);  // 用于脉动效果
         trees.DrawInstanced(treeShader);
 
         // Render skybox last
@@ -373,6 +381,20 @@ void processInput(GLFWwindow* window) {
         yKeyPressed = false;
     }
 
+    // Volcanic eruption control
+    static bool eKeyPressed = false;
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS && !eKeyPressed) {
+        eKeyPressed = true;
+        LavaFlow* lavaFlow = static_cast<LavaFlow*>(glfwGetWindowUserPointer(window));
+        if (lavaFlow) {
+            lavaFlow->TriggerEruption(5.0f);  // 5 second eruption
+            std::cout << "VOLCANIC ERUPTION TRIGGERED!" << std::endl;
+        }
+    }
+    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_RELEASE) {
+        eKeyPressed = false;
+    }
+
     // Manual time control
     if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
         timeOfDay = 0.0f; // Noon
@@ -423,44 +445,34 @@ unsigned int createShadowMap() {
 }
 
 glm::mat4 calculateLightSpaceMatrix(const glm::vec3& lightPos, const glm::vec3& targetPos) {
-    // 使用正交投影创建光源空间矩阵
     glm::mat4 lightProjection = glm::ortho(-100.0f, 100.0f, -100.0f, 100.0f, 1.0f, 200.0f);
     glm::mat4 lightView = glm::lookAt(lightPos, targetPos, glm::vec3(0.0f, 1.0f, 0.0f));
     return lightProjection * lightView;
 }
 
 glm::vec3 calculateSunPosition(float timeOfDay) {
-    // 计算太阳角度 (0 = 正午90度, 0.5 = 日落/日出0度, 1.0 = 午夜-90度)
-    float angle = (timeOfDay * 2.0f - 0.5f) * 3.14159f; // -π/2 to 3π/2
-
+    float angle = (timeOfDay * 2.0f - 0.5f) * 3.14159f;
     float distance = 150.0f;
     float x = distance * cos(angle);
     float y = distance * sin(angle);
-
-    // 太阳从东升西落
     return glm::vec3(x, y, 0.0f);
 }
 
 glm::vec3 calculateLightColor(float timeOfDay) {
-    // 根据时间计算光照颜色和强度
     glm::vec3 color;
 
     if (timeOfDay < 0.25f) {
-        // 白天 - 明亮的白光
         color = glm::vec3(1.0f, 1.0f, 1.0f);
     }
     else if (timeOfDay < 0.5f) {
-        // 日落 - 橙红色渐变
         float t = (timeOfDay - 0.25f) * 4.0f;
         color = glm::mix(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(1.0f, 0.6f, 0.3f), t);
     }
     else if (timeOfDay < 0.75f) {
-        // 夜晚 - 微弱的蓝色月光
         float t = (timeOfDay - 0.5f) * 4.0f;
         color = glm::mix(glm::vec3(1.0f, 0.6f, 0.3f), glm::vec3(0.2f, 0.2f, 0.4f), t);
     }
     else {
-        // 日出 - 从蓝色过渡到白色
         float t = (timeOfDay - 0.75f) * 4.0f;
         color = glm::mix(glm::vec3(0.2f, 0.2f, 0.4f), glm::vec3(1.0f, 1.0f, 1.0f), t);
     }

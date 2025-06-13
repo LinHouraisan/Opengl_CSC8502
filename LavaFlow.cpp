@@ -8,17 +8,8 @@
 
 LavaFlow::LavaFlow(Terrain* terrain, float particleSize)
     : terrain(terrain), particleSize(particleSize), isFlowing(false),
-    flowRate(8.0f), emissionTimer(0.0f), maxParticles(200) {  // 适中的发射频率
-
-    // 初始发射中心在火山口边缘（朝北方向）
-    float craterRadius = 8.0f;
-    float angle = 0.0f; // 朝北方向
-    float x = craterRadius * cos(angle);
-    float z = craterRadius * sin(angle);
-    float height = terrain->GetHeightAt(x, z);
-
-    emissionCenter = glm::vec3(x, height + 1.0f, z);
-    emissionRadius = 3.0f;
+    isErupting(false), eruptionTimer(0.0f), eruptionDuration(5.0f),
+    maxParticles(1000) {  // 增加粒子数量以支持多个发射器
 
     // 初始化粒子池
     particles.resize(maxParticles);
@@ -36,9 +27,81 @@ LavaFlow::~LavaFlow() {
     glDeleteBuffers(1, &instanceVBO);
 }
 
+void LavaFlow::SetLakeCenter(const glm::vec3& center) {
+    lakeCenter = center;
+    setupEmitters();
+}
+
+void LavaFlow::setupEmitters() {
+    emitters.clear();
+
+    // 在火山口边缘创建多个发射器
+    float craterRadius = 8.0f;
+    int numEmitters = 6;  // 主要发射器数量
+
+    for (int i = 0; i < numEmitters; i++) {
+        float angle = (float)i * 2.0f * 3.14159f / numEmitters;
+        float x = craterRadius * cos(angle);
+        float z = craterRadius * sin(angle);
+        float height = terrain->GetHeightAt(x, z);
+
+        LavaEmitter emitter;
+        emitter.position = glm::vec3(x, height + 1.0f, z);
+
+        // 主要向外喷射，略微向上
+        glm::vec3 outward = glm::normalize(glm::vec3(x, 0, z));
+        emitter.direction = glm::normalize(outward + glm::vec3(0, 0.5f, 0));
+
+        emitter.intensity = 10.0f + (rand() % 100) / 100.0f * 5.0f;  // 10-15的强度
+        emitter.spread = 0.4f;
+        emitter.emissionRate = 15.0f;  // 每秒15个粒子
+        emitter.emissionTimer = 0.0f;
+        emitter.active = true;
+        emitter.burstTimer = 0.0f;
+        emitter.nextBurstTime = 2.0f + (rand() % 100) / 100.0f * 3.0f;  // 2-5秒随机爆发
+
+        emitters.push_back(emitter);
+    }
+
+    // 添加中心发射器（向上喷发）
+    LavaEmitter centerEmitter;
+    centerEmitter.position = lakeCenter;
+    centerEmitter.direction = glm::vec3(0, 1, 0);  // 垂直向上
+    centerEmitter.intensity = 20.0f;  // 更强的喷发
+    centerEmitter.spread = 0.3f;
+    centerEmitter.emissionRate = 30.0f;  // 更高的发射率
+    centerEmitter.emissionTimer = 0.0f;
+    centerEmitter.active = true;
+    centerEmitter.burstTimer = 0.0f;
+    centerEmitter.nextBurstTime = 1.0f;
+
+    emitters.push_back(centerEmitter);
+
+    std::cout << "Created " << emitters.size() << " lava emitters" << std::endl;
+}
+
+void LavaFlow::AddEmitter(const glm::vec3& position, const glm::vec3& direction,
+    float intensity, float spread) {
+    LavaEmitter emitter;
+    emitter.position = position;
+    emitter.direction = glm::normalize(direction);
+    emitter.intensity = intensity;
+    emitter.spread = spread;
+    emitter.emissionRate = 10.0f;
+    emitter.emissionTimer = 0.0f;
+    emitter.active = true;
+    emitter.burstTimer = 0.0f;
+    emitter.nextBurstTime = 2.0f + (rand() % 100) / 100.0f * 3.0f;
+
+    emitters.push_back(emitter);
+}
+
 void LavaFlow::StartFlow() {
     isFlowing = true;
-    std::cout << "Lava flow started!" << std::endl;
+    if (emitters.empty()) {
+        setupEmitters();
+    }
+    std::cout << "Lava flow started with " << emitters.size() << " emitters!" << std::endl;
 }
 
 void LavaFlow::StopFlow() {
@@ -46,16 +109,31 @@ void LavaFlow::StopFlow() {
     std::cout << "Lava flow stopped!" << std::endl;
 }
 
-void LavaFlow::Update(float deltaTime) {
-    // 发射新粒子
-    if (isFlowing) {
-        emissionTimer += deltaTime;
-        float emissionInterval = 1.0f / flowRate;
+void LavaFlow::TriggerEruption(float duration) {
+    isErupting = true;
+    eruptionDuration = duration;
+    eruptionTimer = 0.0f;
 
-        while (emissionTimer >= emissionInterval) {
-            emitParticle();
-            emissionTimer -= emissionInterval;
+    // 爆发时创建大量粒子
+    for (auto& emitter : emitters) {
+        createBurst(emitter, 50);  // 每个发射器爆发50个粒子
+    }
+
+    std::cout << "Volcanic eruption triggered for " << duration << " seconds!" << std::endl;
+}
+
+void LavaFlow::Update(float deltaTime) {
+    // 更新爆发状态
+    if (isErupting) {
+        eruptionTimer += deltaTime;
+        if (eruptionTimer >= eruptionDuration) {
+            isErupting = false;
         }
+    }
+
+    // 更新发射器
+    if (isFlowing || isErupting) {
+        updateEmitters(deltaTime);
     }
 
     // 更新所有活跃粒子
@@ -69,43 +147,119 @@ void LavaFlow::Update(float deltaTime) {
     updateInstanceBuffer();
 }
 
-void LavaFlow::emitParticle() {
+void LavaFlow::updateEmitters(float deltaTime) {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<float> burstDist(0.8f, 1.2f);
+
+    for (auto& emitter : emitters) {
+        if (!emitter.active && !isErupting) continue;
+
+        // 常规发射
+        emitter.emissionTimer += deltaTime;
+        float rate = emitter.emissionRate;
+
+        // 爆发时增加发射率
+        if (isErupting) {
+            rate *= 3.0f;
+        }
+
+        float emissionInterval = 1.0f / rate;
+
+        while (emitter.emissionTimer >= emissionInterval) {
+            emitParticle(emitter);
+            emitter.emissionTimer -= emissionInterval;
+        }
+
+        // 检查是否需要爆发
+        emitter.burstTimer += deltaTime;
+        if (emitter.burstTimer >= emitter.nextBurstTime) {
+            int burstCount = isErupting ? 30 : 15;  // 爆发粒子数
+            createBurst(emitter, burstCount);
+
+            emitter.burstTimer = 0.0f;
+            emitter.nextBurstTime = 2.0f + burstDist(gen) * 3.0f;
+        }
+    }
+}
+
+void LavaFlow::emitParticle(const LavaEmitter& emitter) {
     // 找到一个非活跃粒子
     for (auto& particle : particles) {
         if (!particle.active) {
             static std::random_device rd;
             static std::mt19937 gen(rd());
-            static std::uniform_real_distribution<float> angleDist(-0.3f, 0.3f);
-            static std::uniform_real_distribution<float> radiusDist(0.0f, 1.0f);
-            static std::uniform_real_distribution<float> speedDist(3.0f, 6.0f);
+            static std::uniform_real_distribution<float> spreadDist(-1.0f, 1.0f);
+            static std::uniform_real_distribution<float> speedDist(0.8f, 1.2f);
+            static std::uniform_real_distribution<float> offsetDist(-0.5f, 0.5f);
 
-            // 在发射点附近随机位置生成
-            float angleOffset = angleDist(gen);
-            float r = radiusDist(gen) * emissionRadius;
-
-            particle.position = emissionCenter + glm::vec3(
-                r * cos(angleOffset),
-                radiusDist(gen) * 0.5f,
-                r * sin(angleOffset)
+            // 在发射点附近随机位置
+            particle.position = emitter.position + glm::vec3(
+                offsetDist(gen),
+                offsetDist(gen) * 0.5f,
+                offsetDist(gen)
             );
 
             particle.previousPosition = particle.position;
 
-            // 初始速度：主要向火山外侧和向下
-            float speed = speedDist(gen);
-            glm::vec3 awayFromCenter = glm::normalize(particle.position - glm::vec3(0.0f, particle.position.y, 0.0f));
-
-            particle.velocity = glm::vec3(
-                awayFromCenter.x * speed,
-                -2.0f - radiusDist(gen),
-                awayFromCenter.z * speed
+            // 计算发射方向（带扩散）
+            glm::vec3 spread = glm::vec3(
+                spreadDist(gen) * emitter.spread,
+                spreadDist(gen) * emitter.spread * 0.5f,  // 垂直扩散较小
+                spreadDist(gen) * emitter.spread
             );
 
+            glm::vec3 direction = glm::normalize(emitter.direction + spread);
+            float speed = emitter.intensity * speedDist(gen);
+
+            // 爆发时增加速度
+            if (isErupting) {
+                speed *= 1.5f;
+            }
+
+            particle.velocity = direction * speed;
             particle.temperature = 1.0f;
             particle.lifetime = 0.0f;
             particle.active = true;
+            particle.emitterID = &emitter - &emitters[0];  // 记录发射器ID
 
             break;
+        }
+    }
+}
+
+void LavaFlow::createBurst(const LavaEmitter& emitter, int particleCount) {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<float> angleDist(0.0f, 6.28318f);
+    static std::uniform_real_distribution<float> speedDist(0.7f, 1.3f);
+    static std::uniform_real_distribution<float> upDist(0.3f, 0.7f);
+
+    int created = 0;
+    for (auto& particle : particles) {
+        if (!particle.active && created < particleCount) {
+            // 球形爆发模式
+            float theta = angleDist(gen);
+            float phi = angleDist(gen) * 0.5f;  // 限制在上半球
+
+            glm::vec3 burstDir = glm::vec3(
+                sin(phi) * cos(theta),
+                cos(phi) * upDist(gen),  // 偏向向上
+                sin(phi) * sin(theta)
+            );
+
+            // 结合发射器方向
+            burstDir = glm::normalize(burstDir * 0.5f + emitter.direction);
+
+            particle.position = emitter.position;
+            particle.previousPosition = particle.position;
+            particle.velocity = burstDir * emitter.intensity * speedDist(gen) * 1.5f;
+            particle.temperature = 1.0f;
+            particle.lifetime = 0.0f;
+            particle.active = true;
+            particle.emitterID = &emitter - &emitters[0];
+
+            created++;
         }
     }
 }
@@ -118,7 +272,7 @@ void LavaFlow::updateParticle(LavaParticle& particle, float deltaTime) {
     particle.lifetime += deltaTime;
 
     // 温度随时间降低
-    particle.temperature = std::max(0.0f, 1.0f - particle.lifetime * 0.02f);
+    particle.temperature = std::max(0.0f, 1.0f - particle.lifetime * 0.015f);
 
     // 应用重力
     particle.velocity.y -= 9.8f * deltaTime;
@@ -150,8 +304,8 @@ void LavaFlow::updateParticle(LavaParticle& particle, float deltaTime) {
 
         // 限制最大速度
         float speed = glm::length(particle.velocity);
-        if (speed > 15.0f) {
-            particle.velocity = (particle.velocity / speed) * 15.0f;
+        if (speed > 20.0f) {
+            particle.velocity = (particle.velocity / speed) * 20.0f;
         }
     }
 
@@ -162,7 +316,8 @@ void LavaFlow::updateParticle(LavaParticle& particle, float deltaTime) {
     if (particle.temperature <= 0.05f ||
         speed < 0.05f ||
         (terrainHeight < 1.0f && speed < 0.2f) ||
-        particle.lifetime > 120.0f) {
+        particle.lifetime > 120.0f ||
+        particle.position.y < -10.0f) {  // 防止粒子掉落太深
         particle.active = false;
     }
 }
@@ -184,11 +339,11 @@ void LavaFlow::updateInstanceBuffer() {
             if (distance > 0.001f) {
                 direction = glm::normalize(direction);
 
-                // 计算速度的大小（使用实际速度而不是帧间距离）
+                // 计算速度的大小
                 float speed = glm::length(particle.velocity);
 
                 // 计算拉伸因子（速度越快，拉伸越长）
-                float stretchFactor = 1.0f + speed * 0.4f;  // 最多拉伸到原来的4倍
+                float stretchFactor = 1.0f + speed * 0.4f;
                 stretchFactor = std::min(stretchFactor, 4.0f);
 
                 // 使用速度方向而不是位移方向
@@ -213,9 +368,9 @@ void LavaFlow::updateInstanceBuffer() {
                     model = glm::rotate(model, angle, axis);
                 }
 
-                // 应用拉伸：Y轴（运动方向）拉伸，XZ轴稍微压缩
+                // 应用拉伸：Y轴（运动方向）拉伸，XZ轴略微压缩
                 float baseScale = particleSize * (0.5f + 0.5f * particle.temperature);
-                float compressFactor = 1.0f / sqrt(stretchFactor);  // 保持体积大致不变
+                float compressFactor = 1.0f / sqrt(stretchFactor);
                 model = glm::scale(model, glm::vec3(
                     baseScale * compressFactor,
                     baseScale * stretchFactor,
@@ -244,6 +399,8 @@ void LavaFlow::Draw(Shader& shader, float time) {
     if (activeTransforms.empty()) return;
 
     shader.setFloat("time", time);
+    shader.setBool("isErupting", isErupting);
+    shader.setFloat("eruptionIntensity", isErupting ? 1.0f : 0.0f);
 
     glBindVertexArray(VAO);
     glDrawElementsInstanced(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, 0, activeTransforms.size());
@@ -255,7 +412,7 @@ void LavaFlow::setupMesh() {
     std::vector<unsigned int> indices;
 
     // 创建球体，增加纵向分段以获得更好的拉伸效果
-    createSphere(vertices, indices, 1.0f, 16, 16);  // 增加分段数
+    createSphere(vertices, indices, 1.0f, 16, 16);
     indexCount = indices.size();
 
     // 创建VAO/VBO/EBO
