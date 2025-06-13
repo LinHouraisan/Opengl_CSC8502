@@ -128,6 +128,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="LavaBubbles.cpp" />
     <ClCompile Include="LavaFlow.cpp" />
     <ClCompile Include="LavaLake.cpp" />
     <ClCompile Include="Main.cpp" />
@@ -139,6 +140,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="LavaBubbles.h" />
     <ClInclude Include="LavaFlow.h" />
     <ClInclude Include="LavaLake.h" />
     <ClInclude Include="Mesh.h" />

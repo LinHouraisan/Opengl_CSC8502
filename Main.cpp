@@ -12,6 +12,7 @@
 #include "Tree.h"
 #include "LavaLake.h"
 #include "LavaFlow.h"
+#include "LavaBubbles.h"
 
 // Window settings
 const unsigned int SCR_WIDTH = 1280;
@@ -88,6 +89,7 @@ int main() {
     Shader shadowInstanceShader("shaders/shadow_instance.vert", "shaders/shadow.frag");
     Shader lavaShader("shaders/lava.vert", "shaders/lava.frag");
     Shader lavaFlowShader("shaders/lava_flow.vert", "shaders/lava_flow.frag");
+    Shader bubbleShader("shaders/bubble.vert", "shaders/bubble.frag");
 
     // Create terrain
     Terrain terrain(150, 1.0f, 45.0f, 10.0f);
@@ -100,6 +102,9 @@ int main() {
     LavaLake lavaLake(8.0f, 64);
     // 将岩浆湖放置在火山口底部，稍微高一点避免z-fighting
     lavaLake.SetPosition(glm::vec3(0.0f, craterHeight + 2.0f, 0.0f));
+
+    // Create lava bubbles system
+    LavaBubbles lavaBubbles(lavaLake.GetPosition(), 8.0f, 40);
 
     // Create lava flow system
     LavaFlow lavaFlow(&terrain, 0.8f);
@@ -166,6 +171,9 @@ int main() {
 
         // Update lava flow
         lavaFlow.Update(deltaTime);
+
+        // Update lava bubbles
+        lavaBubbles.Update(deltaTime);
 
         // Input
         processInput(window);
@@ -236,6 +244,22 @@ int main() {
 
         glDisable(GL_BLEND);
         glDepthFunc(GL_LESS);  // 恢复正常深度测试
+
+        // Render lava bubbles - 在岩浆湖之后渲染
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_CULL_FACE);  // 启用背面剔除提高性能
+        glCullFace(GL_BACK);
+
+        bubbleShader.use();
+        bubbleShader.setMat4("projection", projection);
+        bubbleShader.setMat4("view", view);
+        bubbleShader.setVec3("viewPos", camera.Position);
+        bubbleShader.setFloat("time", currentFrame);
+        lavaBubbles.Draw(bubbleShader, currentFrame);
+
+        glDisable(GL_CULL_FACE);
+        glDisable(GL_BLEND);
 
         // 更新地形着色器的岩浆位置
         glm::vec3 lavaPos = lavaLake.GetPosition();
