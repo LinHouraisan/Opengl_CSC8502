@@ -150,6 +150,8 @@
     <ClInclude Include="Tree.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="shaders\bubble.frag" />
+    <None Include="shaders\bubble.vert" />
     <None Include="shaders\lava.frag" />
     <None Include="shaders\lava.vert" />
     <None Include="shaders\lava_flow.frag" />

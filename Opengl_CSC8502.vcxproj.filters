@@ -121,5 +121,11 @@
     <None Include="shaders\lava_flow.vert">
       <Filter>资源文件\shaders</Filter>
     </None>
+    <None Include="shaders\bubble.frag">
+      <Filter>资源文件\shaders</Filter>
+    </None>
+    <None Include="shaders\bubble.vert">
+      <Filter>资源文件\shaders</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -104,10 +104,6 @@ void LavaBubbles::updateBubble(Bubble& bubble, float deltaTime) {
     movement.x += wobbleAmount * deltaTime;
     bubble.position += movement;
 
-    // 气泡在上升过程中会逐渐变大
-    float sizeMultiplier = 1.0f + lifeProgress * 0.5f;
-    bubble.size = bubble.size * sizeMultiplier * (1.0f - lifeProgress * 0.3f);
-
     // 如果气泡上升到湖面以上一定高度，让它破裂
     if (bubble.position.y > lakeCenter.y + 2.0f) {
         bubble.active = false;
@@ -124,12 +120,15 @@ void LavaBubbles::updateInstanceBuffer() {
 
             // 根据生命周期调整大小
             float lifeProgress = bubble.lifetime / bubble.maxLifetime;
-            float scale = bubble.size * (1.0f + lifeProgress * 0.3f);
+
+            // 气泡在生命周期内稍微膨胀（最多变大30%）
+            float expansionFactor = 1.0f + lifeProgress * 0.3f;
 
             // 在接近消失时快速缩小
+            float scale = bubble.size * expansionFactor;
             if (lifeProgress > 0.8f) {
                 float fadeProgress = (lifeProgress - 0.8f) / 0.2f;
-                scale *= (1.0f - fadeProgress);
+                scale *= (1.0f - fadeProgress * 0.8f);  // 最后20%的时间内缩小到20%
             }
 
             model = glm::scale(model, glm::vec3(scale));
