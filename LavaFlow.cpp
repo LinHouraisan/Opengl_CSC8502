@@ -188,7 +188,7 @@ void LavaFlow::updateInstanceBuffer() {
                 float speed = glm::length(particle.velocity);
 
                 // 计算拉伸因子（速度越快，拉伸越长）
-                float stretchFactor = 1.0f + speed * 0.2f;  // 最多拉伸到原来的4倍
+                float stretchFactor = 1.0f + speed * 0.4f;  // 最多拉伸到原来的4倍
                 stretchFactor = std::min(stretchFactor, 4.0f);
 
                 // 使用速度方向而不是位移方向
