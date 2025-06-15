@@ -137,6 +137,7 @@
     <ClCompile Include="Skybox.cpp" />
     <ClCompile Include="Terrain.cpp" />
     <ClCompile Include="Tree.cpp" />
+    <ClCompile Include="VolcanicAsh.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
@@ -148,6 +149,7 @@
     <ClInclude Include="Skybox.h" />
     <ClInclude Include="Terrain.h" />
     <ClInclude Include="Tree.h" />
+    <ClInclude Include="VolcanicAsh.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\bubble.frag" />

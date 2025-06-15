@@ -13,6 +13,7 @@
 #include "LavaLake.h"
 #include "LavaFlow.h"
 #include "LavaBubbles.h"
+#include "VolcanicAsh.h"
 
 // Window settings
 const unsigned int SCR_WIDTH = 1280;
@@ -33,10 +34,14 @@ float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
 // Day/Night cycle
-float timeOfDay = 0.0f; // 0.0 = noon, 0.5 = sunset/sunrise, 1.0 = midnight
+float timeOfDay = 0.0f;
 bool isTransitioning = false;
 float transitionSpeed = 0.5f;
 float targetTimeOfDay = 0.0f;
+
+// Wind parameters
+glm::vec3 windDirection(1.0f, 0.0f, 0.5f);
+float windStrength = 3.0f;
 
 // Callbacks
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -50,6 +55,12 @@ glm::mat4 calculateLightSpaceMatrix(const glm::vec3& lightPos, const glm::vec3& 
 glm::vec3 calculateSunPosition(float timeOfDay);
 glm::vec3 calculateLightColor(float timeOfDay);
 
+// 存储系统指针的结构体
+struct SystemPointers {
+    LavaFlow* lavaFlow;
+    VolcanicAsh* volcanicAsh;
+};
+
 int main() {
     // Initialize GLFW
     glfwInit();
@@ -58,7 +69,7 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     // Create window
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Realistic Volcano with Eruption System", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Realistic Volcano with Ash System", NULL, NULL);
     if (window == NULL) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -90,6 +101,7 @@ int main() {
     Shader lavaShader("shaders/lava.vert", "shaders/lava.frag");
     Shader lavaFlowShader("shaders/lava_flow.vert", "shaders/lava_flow.frag");
     Shader bubbleShader("shaders/bubble.vert", "shaders/bubble.frag");
+    Shader ashShader("shaders/ash.vert", "shaders/ash.frag");
 
     // Create terrain
     Terrain terrain(150, 1.0f, 45.0f, 10.0f);
@@ -105,13 +117,19 @@ int main() {
     // Create lava bubbles system
     LavaBubbles lavaBubbles(lavaLake.GetPosition(), 8.0f, 40);
 
-    // Create enhanced lava flow system with multiple emitters
+    // Create enhanced lava flow system
     LavaFlow lavaFlow(&terrain, 0.8f);
     lavaFlow.SetLakeCenter(lavaLake.GetPosition());
     lavaFlow.StartFlow();
 
-    // Store lava flow pointer in window user pointer for input handling
-    glfwSetWindowUserPointer(window, &lavaFlow);
+    // Create volcanic ash system
+    glm::vec3 ashEmissionCenter = glm::vec3(0.0f, craterHeight + 5.0f, 0.0f);
+    VolcanicAsh volcanicAsh(ashEmissionCenter, 5.0f, 300);
+    volcanicAsh.SetWind(windDirection, windStrength);
+
+    // Store system pointers for input handling
+    SystemPointers systems = { &lavaFlow, &volcanicAsh };
+    glfwSetWindowUserPointer(window, &systems);
 
     // Create skybox
     Skybox skybox;
@@ -154,7 +172,10 @@ int main() {
     std::cout << "T - Toggle day/night cycle" << std::endl;
     std::cout << "Y - Toggle lava flow on/off" << std::endl;
     std::cout << "E - Trigger volcanic eruption!" << std::endl;
+    std::cout << "A - Toggle volcanic ash emission" << std::endl;
     std::cout << "1-4 - Set time of day (noon/afternoon/sunset/night)" << std::endl;
+    std::cout << "Arrow Keys - Control wind direction" << std::endl;
+    std::cout << "Page Up/Down - Control wind strength" << std::endl;
     std::cout << "================================\n" << std::endl;
 
     // Render loop
@@ -180,11 +201,13 @@ int main() {
             if (timeOfDay < 0.0f) timeOfDay += 1.0f;
         }
 
-        // Update lava flow
+        // Update systems
         lavaFlow.Update(deltaTime);
-
-        // Update lava bubbles
         lavaBubbles.Update(deltaTime);
+        volcanicAsh.Update(deltaTime);
+
+        // Update wind for ash
+        volcanicAsh.SetWind(windDirection, windStrength);
 
         // Input
         processInput(window);
@@ -277,7 +300,7 @@ int main() {
         terrainShader.setVec3("lavaPos", lavaPos);
         treeShader.setVec3("lavaPos", lavaPos);
 
-        // Render lava flow particles with enhanced effects
+        // Render lava flow particles
         glEnable(GL_BLEND);
         glBlendFunc(GL_ONE, GL_ONE);  // Additive blending for glow
 
@@ -301,6 +324,21 @@ int main() {
         treeShader.setVec3("lightColor", lightColor);
         treeShader.setFloat("shadowIntensity", lightColor.r > 0.5f ? 0.8f : 0.3f);
         trees.DrawInstanced(treeShader);
+
+        // Render volcanic ash
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDepthMask(GL_FALSE);  // 禁用深度写入，但仍然进行深度测试
+
+        ashShader.use();
+        ashShader.setMat4("projection", projection);
+        ashShader.setMat4("view", view);
+        ashShader.setVec3("viewPos", camera.Position);
+        ashShader.setFloat("time", currentFrame);
+        volcanicAsh.Draw(ashShader, currentFrame);
+
+        glDepthMask(GL_TRUE);
+        glDisable(GL_BLEND);
 
         // Render skybox last
         glDepthFunc(GL_LEQUAL);
@@ -343,19 +381,19 @@ void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         camera.ProcessKeyboard(RIGHT, deltaTime * cameraSpeed);
 
+    // Get system pointers
+    SystemPointers* systems = static_cast<SystemPointers*>(glfwGetWindowUserPointer(window));
+
     // Day/Night cycle control
     static bool tKeyPressed = false;
     if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS && !tKeyPressed) {
         tKeyPressed = true;
         isTransitioning = true;
 
-        // Toggle between day and night
         if (timeOfDay < 0.25f || timeOfDay > 0.75f) {
-            // Currently day, transition to night
             targetTimeOfDay = 0.5f;
         }
         else {
-            // Currently night, transition to day
             targetTimeOfDay = 0.0f;
         }
     }
@@ -367,13 +405,12 @@ void processInput(GLFWwindow* window) {
     static bool yKeyPressed = false;
     if (glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS && !yKeyPressed) {
         yKeyPressed = true;
-        LavaFlow* lavaFlow = static_cast<LavaFlow*>(glfwGetWindowUserPointer(window));
-        if (lavaFlow) {
-            if (lavaFlow->IsFlowing()) {
-                lavaFlow->StopFlow();
+        if (systems && systems->lavaFlow) {
+            if (systems->lavaFlow->IsFlowing()) {
+                systems->lavaFlow->StopFlow();
             }
             else {
-                lavaFlow->StartFlow();
+                systems->lavaFlow->StartFlow();
             }
         }
     }
@@ -385,9 +422,14 @@ void processInput(GLFWwindow* window) {
     static bool eKeyPressed = false;
     if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS && !eKeyPressed) {
         eKeyPressed = true;
-        LavaFlow* lavaFlow = static_cast<LavaFlow*>(glfwGetWindowUserPointer(window));
-        if (lavaFlow) {
-            lavaFlow->TriggerEruption(5.0f);  // 5 second eruption
+        if (systems) {
+            if (systems->lavaFlow) {
+                systems->lavaFlow->TriggerEruption(5.0f);
+            }
+            if (systems->volcanicAsh) {
+                systems->volcanicAsh->StartEmission();
+                systems->volcanicAsh->SetIntensity(2.0f);  // 增加喷发强度
+            }
             std::cout << "VOLCANIC ERUPTION TRIGGERED!" << std::endl;
         }
     }
@@ -395,21 +437,63 @@ void processInput(GLFWwindow* window) {
         eKeyPressed = false;
     }
 
+    // Volcanic ash control
+    static bool aKeyPressed = false;
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS && !aKeyPressed) {
+        aKeyPressed = true;
+        if (systems && systems->volcanicAsh) {
+            if (systems->volcanicAsh->IsEmitting()) {
+                systems->volcanicAsh->StopEmission();
+            }
+            else {
+                systems->volcanicAsh->StartEmission();
+                systems->volcanicAsh->SetIntensity(1.0f);  // 正常强度
+            }
+        }
+    }
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_RELEASE) {
+        aKeyPressed = false;
+    }
+
+    // Wind control
+    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
+        float angle = atan2(windDirection.z, windDirection.x);
+        angle -= deltaTime;
+        windDirection.x = cos(angle);
+        windDirection.z = sin(angle);
+        std::cout << "Wind direction: (" << windDirection.x << ", " << windDirection.z << ")" << std::endl;
+    }
+    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
+        float angle = atan2(windDirection.z, windDirection.x);
+        angle += deltaTime;
+        windDirection.x = cos(angle);
+        windDirection.z = sin(angle);
+        std::cout << "Wind direction: (" << windDirection.x << ", " << windDirection.z << ")" << std::endl;
+    }
+    if (glfwGetKey(window, GLFW_KEY_PAGE_UP) == GLFW_PRESS) {
+        windStrength = std::min(windStrength + deltaTime * 5.0f, 20.0f);
+        std::cout << "Wind strength: " << windStrength << std::endl;
+    }
+    if (glfwGetKey(window, GLFW_KEY_PAGE_DOWN) == GLFW_PRESS) {
+        windStrength = std::max(windStrength - deltaTime * 5.0f, 0.0f);
+        std::cout << "Wind strength: " << windStrength << std::endl;
+    }
+
     // Manual time control
     if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
-        timeOfDay = 0.0f; // Noon
+        timeOfDay = 0.0f;
         isTransitioning = false;
     }
     if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) {
-        timeOfDay = 0.25f; // Afternoon
+        timeOfDay = 0.25f;
         isTransitioning = false;
     }
     if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS) {
-        timeOfDay = 0.5f; // Sunset
+        timeOfDay = 0.5f;
         isTransitioning = false;
     }
     if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS) {
-        timeOfDay = 0.75f; // Night
+        timeOfDay = 0.75f;
         isTransitioning = false;
     }
 }
