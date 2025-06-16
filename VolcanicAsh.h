@@ -20,7 +20,7 @@ struct AshParticle {
 
 class VolcanicAsh {
 public:
-    VolcanicAsh(const glm::vec3& emissionCenter, float emissionRadius, int maxParticles = 500);
+    VolcanicAsh(const glm::vec3& emissionCenter, float emissionRadius, int maxParticles = 1000);  // 增加默认粒子数
     ~VolcanicAsh();
 
     // 开始/停止火山灰喷发

@@ -5,12 +5,12 @@
 
 VolcanicAsh::VolcanicAsh(const glm::vec3& emissionCenter, float emissionRadius, int maxParticles)
     : emissionCenter(emissionCenter), emissionRadius(emissionRadius), maxParticles(maxParticles),
-    isEmitting(false), emissionIntensity(1.0f), spawnTimer(0.0f), spawnRate(20.0f),
+    isEmitting(false), emissionIntensity(1.0f), spawnTimer(0.0f), spawnRate(50.0f),  // 增加生成率
     windDirection(glm::vec3(1.0f, 0.0f, 0.0f)), windStrength(2.0f),
     rng(std::random_device{}()),
     radiusDist(0.0f, 1.0f),
-    sizeDist(2.0f, 6.0f),
-    lifeDist(15.0f, 30.0f),
+    sizeDist(8.0f, 20.0f),  // 大幅增加粒子大小
+    lifeDist(30.0f, 60.0f),  // 延长生命周期
     velocityDist(-1.0f, 1.0f),
     angleDist(0.0f, 6.28318f) {
 
@@ -71,29 +71,29 @@ void VolcanicAsh::Update(float deltaTime) {
 void VolcanicAsh::spawnParticle() {
     for (auto& particle : particles) {
         if (!particle.active) {
-            // 在发射中心周围随机位置生成
-            float r = radiusDist(rng) * emissionRadius;
+            // 在火山口周围随机位置生成，但集中在中心
+            float r = radiusDist(rng) * emissionRadius * 0.5f;  // 缩小发射范围使其更集中
             float angle = angleDist(rng);
 
             particle.position = emissionCenter + glm::vec3(
                 r * cos(angle),
-                0.0f,
+                velocityDist(rng) * 2.0f,  // 在发射点上下有些随机偏移
                 r * sin(angle)
             );
 
-            // 初始向上速度，带有随机扰动
+            // 初始向上速度，带有轻微的横向扰动
             particle.velocity = glm::vec3(
-                velocityDist(rng) * 2.0f,
-                8.0f + velocityDist(rng) * 4.0f,  // 主要向上
-                velocityDist(rng) * 2.0f
+                velocityDist(rng) * 1.0f,
+                12.0f + velocityDist(rng) * 6.0f,  // 更强的向上速度
+                velocityDist(rng) * 1.0f
             ) * emissionIntensity;
 
             particle.size = particle.initialSize = sizeDist(rng);
             particle.lifetime = 0.0f;
             particle.maxLifetime = lifeDist(rng);
-            particle.opacity = 0.8f;  // 初始不完全不透明
+            particle.opacity = 0.9f;  // 提高初始不透明度
             particle.rotation = angleDist(rng);
-            particle.rotationSpeed = velocityDist(rng) * 2.0f;
+            particle.rotationSpeed = velocityDist(rng) * 1.0f;  // 减慢旋转
             particle.active = true;
 
             break;
@@ -118,15 +118,22 @@ void VolcanicAsh::updateParticle(AshParticle& particle, float deltaTime) {
     particle.position += particle.velocity * deltaTime;
 
     // 应用重力（火山灰比较轻，重力影响较小）
-    particle.velocity.y -= 2.0f * deltaTime;
+    particle.velocity.y -= 0.5f * deltaTime;  // 很小的重力
+
+    // 应用浮力（热气流会让火山灰上升）
+    float heightAboveEmission = particle.position.y - emissionCenter.y;
+    if (heightAboveEmission < 50.0f) {  // 在一定高度内有上升气流
+        float buoyancy = (1.0f - heightAboveEmission / 50.0f) * 3.0f;
+        particle.velocity.y += buoyancy * deltaTime;
+    }
 
     // 应用风力影响（随着高度增加，风力影响增大）
-    float heightFactor = glm::clamp((particle.position.y - emissionCenter.y) / 50.0f, 0.0f, 1.0f);
-    particle.velocity += windDirection * windStrength * heightFactor * deltaTime;
+    float heightFactor = glm::clamp(heightAboveEmission / 100.0f, 0.0f, 1.0f);
+    particle.velocity += windDirection * windStrength * heightFactor * deltaTime * 0.5f;
 
     // 添加湍流效果
-    float turbulence = 5.0f;
-    float noiseScale = 0.1f;
+    float turbulence = 3.0f;
+    float noiseScale = 0.05f;
     particle.velocity.x += turbulence * noise(
         particle.position.x * noiseScale,
         particle.position.y * noiseScale,
@@ -139,32 +146,33 @@ void VolcanicAsh::updateParticle(AshParticle& particle, float deltaTime) {
     ) * deltaTime;
 
     // 空气阻力
-    particle.velocity *= (1.0f - 0.5f * deltaTime);
+    particle.velocity *= (1.0f - 0.3f * deltaTime);
 
-    // 粒子扩散：随时间增大
-    float expansionRate = 1.0f + lifeProgress * 2.0f;  // 最终扩大到3倍
+    // 粒子扩散：随时间增大，但速度较慢
+    float expansionRate = 1.0f + lifeProgress * 1.5f;  // 最终扩大到2.5倍
     particle.size = particle.initialSize * expansionRate;
 
-    // 透明度渐变：随时间降低
+    // 透明度渐变：保持较长时间的不透明
     if (lifeProgress < 0.1f) {
         // 初始淡入
-        particle.opacity = 0.8f * (lifeProgress / 0.1f);
+        particle.opacity = 0.9f * (lifeProgress / 0.1f);
     }
-    else if (lifeProgress > 0.7f) {
+    else if (lifeProgress > 0.8f) {
         // 最后淡出
-        particle.opacity = 0.8f * (1.0f - (lifeProgress - 0.7f) / 0.3f);
+        particle.opacity = 0.9f * (1.0f - (lifeProgress - 0.8f) / 0.2f);
     }
     else {
-        // 中间阶段保持
-        particle.opacity = 0.8f;
+        // 中间阶段保持高不透明度
+        particle.opacity = 0.9f - (lifeProgress - 0.1f) * 0.3f;  // 缓慢降低透明度
     }
 
     // 更新旋转
     particle.rotation += particle.rotationSpeed * deltaTime;
 
-    // 如果粒子飞得太远或太低，将其停用
-    float distanceFromCenter = glm::length(particle.position - emissionCenter);
-    if (distanceFromCenter > 200.0f || particle.position.y < -10.0f) {
+    // 限制粒子的活动范围
+    float distanceFromCenter = glm::length(glm::vec2(particle.position.x - emissionCenter.x,
+        particle.position.z - emissionCenter.z));
+    if (distanceFromCenter > 150.0f || particle.position.y < emissionCenter.y - 20.0f) {
         particle.active = false;
     }
 }
@@ -178,7 +186,7 @@ void VolcanicAsh::updateInstanceBuffer() {
             glm::mat4 model = glm::mat4(1.0f);
             model = glm::translate(model, particle.position);
 
-            // 旋转使billboard面向相机（这里简化处理，实际应该在shader中做）
+            // 旋转使billboard面向相机（简化处理，实际应该在shader中做）
             model = glm::rotate(model, particle.rotation, glm::vec3(0.0f, 1.0f, 0.0f));
 
             // 缩放

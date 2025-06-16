@@ -12,25 +12,24 @@ out float Opacity;
 
 uniform mat4 view;
 uniform mat4 projection;
+uniform float time;
 
 void main() {
-    // Billboard效果 - 使粒子始终面向相机
-    vec4 worldPos = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
-    vec3 cameraRight = vec3(view[0][0], view[1][0], view[2][0]);
-    vec3 cameraUp = vec3(view[0][1], view[1][1], view[2][1]);
+    // 从实例矩阵计算世界坐标
+    vec4 worldPos = instanceMatrix * vec4(aPos, 1.0);
     
-    // 从实例矩阵提取缩放
-    float scale = length(instanceMatrix[0]);
+    // 添加一些顶点动画，让云朵看起来更生动
+    vec3 animatedPos = aPos;
+    float wave = sin(worldPos.x * 0.1 + time * 0.5) * cos(worldPos.z * 0.1 + time * 0.3);
+    animatedPos += aNormal * wave * 0.1;
     
-    // 计算billboard顶点位置
-    vec3 vertexPos = worldPos.xyz 
-        + cameraRight * aPos.x * scale
-        + cameraUp * aPos.y * scale;
+    // 重新计算世界位置
+    worldPos = instanceMatrix * vec4(animatedPos, 1.0);
     
-    FragPos = vertexPos;
-    Normal = -vec3(view[0][2], view[1][2], view[2][2]); // 面向相机
+    FragPos = vec3(worldPos);
+    Normal = mat3(transpose(inverse(instanceMatrix))) * aNormal;
     TexCoords = aTexCoords;
     Opacity = aOpacity;
     
-    gl_Position = projection * view * vec4(vertexPos, 1.0);
+    gl_Position = projection * view * worldPos;
 }

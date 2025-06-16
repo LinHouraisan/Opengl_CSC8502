@@ -152,6 +152,8 @@
     <ClInclude Include="VolcanicAsh.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="shaders\ash.frag" />
+    <None Include="shaders\ash.vert" />
     <None Include="shaders\bubble.frag" />
     <None Include="shaders\bubble.vert" />
     <None Include="shaders\lava.frag" />
