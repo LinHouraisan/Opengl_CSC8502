@@ -9,7 +9,7 @@ VolcanicAsh::VolcanicAsh(const glm::vec3& emissionCenter, float emissionRadius, 
     windDirection(glm::vec3(1.0f, 0.0f, 0.0f)), windStrength(2.0f),
     rng(std::random_device{}()),
     radiusDist(0.0f, 1.0f),
-    sizeDist(3.0f, 8.0f),  // 球体大小
+    sizeDist(5.0f, 15.0f),  // 大幅增加球体大小
     lifeDist(20.0f, 40.0f),
     velocityDist(-1.0f, 1.0f),
     angleDist(0.0f, 6.28318f) {
@@ -91,7 +91,7 @@ void VolcanicAsh::spawnParticle() {
             particle.size = particle.initialSize = sizeDist(rng);
             particle.lifetime = 0.0f;
             particle.maxLifetime = lifeDist(rng);
-            particle.opacity = 0.8f;  // 初始不透明度
+            particle.opacity = 1.0f;  // 完全不透明
             particle.rotation = angleDist(rng);
             particle.rotationSpeed = velocityDist(rng) * 0.5f;
             particle.active = true;
@@ -151,19 +151,8 @@ void VolcanicAsh::updateParticle(AshParticle& particle, float deltaTime) {
     float expansionRate = 1.0f + lifeProgress * 2.0f;  // 最终扩大到3倍
     particle.size = particle.initialSize * expansionRate;
 
-    // 透明度渐变
-    if (lifeProgress < 0.1f) {
-        // 初始淡入
-        particle.opacity = 0.8f * (lifeProgress / 0.1f);
-    }
-    else if (lifeProgress > 0.7f) {
-        // 最后淡出
-        particle.opacity = 0.8f * (1.0f - (lifeProgress - 0.7f) / 0.3f);
-    }
-    else {
-        // 中间阶段缓慢降低透明度
-        particle.opacity = 0.8f - (lifeProgress - 0.1f) * 0.4f;
-    }
+    // 透明度渐变 - 保持不透明
+    particle.opacity = 1.0f;  // 始终保持完全不透明
 
     // 更新旋转
     particle.rotation += particle.rotationSpeed * deltaTime;

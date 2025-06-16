@@ -123,10 +123,10 @@ int main() {
     lavaFlow.StartFlow();
 
     // Create volcanic ash system - 调整参数
-    glm::vec3 ashEmissionCenter = glm::vec3(0.0f, craterHeight + 10.0f, 0.0f);  // 提高发射高度
-    VolcanicAsh volcanicAsh(ashEmissionCenter, 3.0f, 1000);  // 减小发射半径，增加粒子数
+    glm::vec3 ashEmissionCenter = glm::vec3(0.0f, craterHeight + 5.0f, 0.0f);  // 降低发射高度
+    VolcanicAsh volcanicAsh(ashEmissionCenter, 3.0f, 300);  // 减少粒子数量
     volcanicAsh.SetWind(windDirection, windStrength);
-    volcanicAsh.SetIntensity(2.0f);  // 提高初始强度
+    volcanicAsh.SetIntensity(1.0f);  // 降低初始强度
 
     // Store system pointers for input handling
     SystemPointers systems = { &lavaFlow, &volcanicAsh };
@@ -329,7 +329,7 @@ int main() {
         // Render volcanic ash
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        glDepthMask(GL_FALSE);  // 禁用深度写入，但仍然进行深度测试
+        glDepthMask(GL_FALSE);  // 禁用深度写入
 
         ashShader.use();
         ashShader.setMat4("projection", projection);
@@ -429,7 +429,7 @@ void processInput(GLFWwindow* window) {
             }
             if (systems->volcanicAsh) {
                 systems->volcanicAsh->StartEmission();
-                systems->volcanicAsh->SetIntensity(3.0f);  // 大幅增加喷发强度
+                systems->volcanicAsh->SetIntensity(2.0f);  // 适度增加喷发强度
             }
             std::cout << "VOLCANIC ERUPTION TRIGGERED!" << std::endl;
         }
@@ -448,7 +448,7 @@ void processInput(GLFWwindow* window) {
             }
             else {
                 systems->volcanicAsh->StartEmission();
-                systems->volcanicAsh->SetIntensity(2.0f);  // 提高正常强度
+                systems->volcanicAsh->SetIntensity(1.0f);  // 正常强度
             }
         }
     }

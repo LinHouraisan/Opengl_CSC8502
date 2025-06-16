@@ -34,48 +34,35 @@ void main() {
     vec3 norm = normalize(Normal);
     vec3 viewDir = normalize(viewPos - FragPos);
     
-    // 使用3D噪声创建体积云效果
+    // 使用3D噪声创建纹理变化
     vec3 noisePos = FragPos * 0.1 + vec3(time * 0.05);
-    float density = fbm(noisePos);
+    float noiseValue = fbm(noisePos);
     
-    // 根据法线和噪声调整密度，创建云朵的不均匀感
-    float edgeFactor = pow(max(dot(norm, viewDir), 0.0), 0.5);
-    density *= edgeFactor;
+    // 火山灰的颜色 - 非常深的灰黑色
+    vec3 blackColor = vec3(0.02, 0.02, 0.02);   // 几乎纯黑
+    vec3 darkColor = vec3(0.08, 0.08, 0.08);    // 非常深的灰色
+    vec3 midColor = vec3(0.15, 0.15, 0.15);     // 深灰色
     
-    // 火山灰的颜色 - 深灰到黑色
-    vec3 darkColor = vec3(0.05, 0.05, 0.05);  // 几乎黑色
-    vec3 midColor = vec3(0.2, 0.2, 0.2);      // 深灰色
-    vec3 lightColor = vec3(0.35, 0.35, 0.35); // 中灰色
-    
-    // 根据密度混合颜色
+    // 根据噪声值混合颜色，创建纹理变化
     vec3 ashColor;
-    if (density > 0.6) {
-        ashColor = mix(midColor, darkColor, (density - 0.6) / 0.4);
+    if (noiseValue > 0.6) {
+        ashColor = mix(darkColor, blackColor, (noiseValue - 0.6) / 0.4);
     } else {
-        ashColor = mix(lightColor, midColor, density / 0.6);
+        ashColor = mix(midColor, darkColor, noiseValue / 0.6);
     }
     
-    // 添加轻微的棕色调
-    ashColor += vec3(0.03, 0.02, 0.0) * density;
+    // 添加非常轻微的棕色调（火山灰特征）
+    ashColor += vec3(0.02, 0.015, 0.0) * noiseValue;
     
-    // 边缘发光（大气散射效果）
-    float rim = 1.0 - edgeFactor;
-    rim = pow(rim, 3.0);
+    // 基于法线的简单光照，让球体有立体感
+    float NdotL = max(dot(norm, normalize(vec3(0.0, 1.0, 0.0))), 0.0);
+    ashColor *= (0.5 + 0.5 * NdotL);
     
-    // 根据高度添加一些亮度变化（高处稍亮）
-    float heightFactor = (FragPos.y - 20.0) / 50.0;
-    heightFactor = clamp(heightFactor, 0.0, 1.0);
-    ashColor += vec3(0.1) * rim * heightFactor;
+    // 边缘稍微亮一点（大气散射）
+    float rim = 1.0 - max(dot(viewDir, norm), 0.0);
+    rim = pow(rim, 4.0);
+    ashColor += vec3(0.05) * rim;
     
-    // 最终透明度计算
-    float finalAlpha = density * Opacity;
-    
-    // 确保中心部分足够不透明
-    if (edgeFactor > 0.7) {
-        finalAlpha = max(finalAlpha, Opacity * 0.8);
-    }
-    
-    finalAlpha = clamp(finalAlpha, 0.0, 0.95);
-    
-    FragColor = vec4(ashColor, finalAlpha);
+    // 完全不透明
+    FragColor = vec4(ashColor, 1.0);
 }
