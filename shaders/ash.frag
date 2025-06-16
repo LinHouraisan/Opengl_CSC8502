@@ -9,69 +9,73 @@ in float Opacity;
 uniform vec3 viewPos;
 uniform float time;
 
-// 生成程序化的烟雾纹理
-float smokePattern(vec2 uv) {
-    // 多层噪声叠加创建烟雾效果
-    float pattern = 0.0;
+// 生成3D噪声纹理
+float noise3D(vec3 p) {
+    return fract(sin(dot(p, vec3(12.9898, 78.233, 45.543))) * 43758.5453);
+}
+
+// 分形布朗运动
+float fbm(vec3 p) {
+    float value = 0.0;
+    float amplitude = 0.5;
+    float frequency = 1.0;
     
-    // 基础圆形渐变，但边缘更硬以创建更浓密的效果
-    vec2 center = vec2(0.5);
-    float dist = length(uv - center);
-    float radialGradient = 1.0 - smoothstep(0.0, 0.7, dist);  // 扩大实心区域
+    for (int i = 0; i < 4; i++) {
+        value += amplitude * noise3D(p * frequency);
+        frequency *= 2.0;
+        amplitude *= 0.5;
+    }
     
-    // 添加噪声扰动
-    vec2 noisedUV = uv + vec2(
-        sin(uv.y * 8.0 + time * 0.3) * 0.03,
-        cos(uv.x * 8.0 + time * 0.2) * 0.03
-    );
-    
-    // 创建云状纹理
-    float noise1 = sin(noisedUV.x * 12.0) * cos(noisedUV.y * 12.0);
-    float noise2 = sin(noisedUV.x * 25.0 + 1.57) * cos(noisedUV.y * 25.0 + 1.57);
-    float noise3 = sin(noisedUV.x * 40.0) * cos(noisedUV.y * 40.0);
-    float cloudiness = (noise1 + noise2 * 0.5 + noise3 * 0.25) * 0.2 + 0.8;  // 提高基础密度
-    
-    // 结合径向渐变和云状纹理
-    pattern = radialGradient * cloudiness;
-    
-    // 更硬的边缘以获得更浓密的效果
-    pattern = smoothstep(0.0, 0.3, pattern);
-    
-    return pattern;
+    return value;
 }
 
 void main() {
-    // 生成烟雾图案
-    float smoke = smokePattern(TexCoords);
+    // 计算视角相关参数
+    vec3 norm = normalize(Normal);
+    vec3 viewDir = normalize(viewPos - FragPos);
     
-    // 火山灰的颜色 - 更暗的颜色范围
-    vec3 blackAshColor = vec3(0.05, 0.05, 0.05);  // 几乎纯黑
-    vec3 darkAshColor = vec3(0.15, 0.15, 0.15);   // 深灰
-    vec3 midAshColor = vec3(0.25, 0.25, 0.25);    // 中灰
+    // 使用3D噪声创建体积云效果
+    vec3 noisePos = FragPos * 0.1 + vec3(time * 0.05);
+    float density = fbm(noisePos);
     
-    // 根据烟雾密度混合颜色，创建更深的效果
+    // 根据法线和噪声调整密度，创建云朵的不均匀感
+    float edgeFactor = pow(max(dot(norm, viewDir), 0.0), 0.5);
+    density *= edgeFactor;
+    
+    // 火山灰的颜色 - 深灰到黑色
+    vec3 darkColor = vec3(0.05, 0.05, 0.05);  // 几乎黑色
+    vec3 midColor = vec3(0.2, 0.2, 0.2);      // 深灰色
+    vec3 lightColor = vec3(0.35, 0.35, 0.35); // 中灰色
+    
+    // 根据密度混合颜色
     vec3 ashColor;
-    if (smoke > 0.7) {
-        ashColor = mix(darkAshColor, blackAshColor, (smoke - 0.7) / 0.3);
+    if (density > 0.6) {
+        ashColor = mix(midColor, darkColor, (density - 0.6) / 0.4);
     } else {
-        ashColor = mix(midAshColor, darkAshColor, smoke / 0.7);
+        ashColor = mix(lightColor, midColor, density / 0.6);
     }
     
-    // 添加一些褐色调（火山灰的特征色）
-    ashColor += vec3(0.02, 0.01, 0.0) * smoke;
+    // 添加轻微的棕色调
+    ashColor += vec3(0.03, 0.02, 0.0) * density;
     
-    // 边缘发光效果（模拟光线散射）- 减弱效果
-    vec3 viewDir = normalize(viewPos - FragPos);
-    float rim = 1.0 - max(dot(viewDir, Normal), 0.0);
-    rim = pow(rim, 4.0);  // 更高的幂次使边缘效果更细
+    // 边缘发光（大气散射效果）
+    float rim = 1.0 - edgeFactor;
+    rim = pow(rim, 3.0);
     
-    // 在边缘添加很轻微的亮度
-    ashColor += vec3(0.05) * rim * (1.0 - smoke * 0.5);  // 中心更暗
+    // 根据高度添加一些亮度变化（高处稍亮）
+    float heightFactor = (FragPos.y - 20.0) / 50.0;
+    heightFactor = clamp(heightFactor, 0.0, 1.0);
+    ashColor += vec3(0.1) * rim * heightFactor;
     
-    // 最终透明度 - 提高整体不透明度
-    float finalAlpha = smoke * Opacity * 1.2;  // 乘以1.2使其更不透明
-    finalAlpha = clamp(finalAlpha, 0.0, 1.0);
+    // 最终透明度计算
+    float finalAlpha = density * Opacity;
     
-    // 应用预乘alpha以获得更好的混合效果
-    FragColor = vec4(ashColor * finalAlpha, finalAlpha);
+    // 确保中心部分足够不透明
+    if (edgeFactor > 0.7) {
+        finalAlpha = max(finalAlpha, Opacity * 0.8);
+    }
+    
+    finalAlpha = clamp(finalAlpha, 0.0, 0.95);
+    
+    FragColor = vec4(ashColor, finalAlpha);
 }
