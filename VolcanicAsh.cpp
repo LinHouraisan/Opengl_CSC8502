@@ -9,8 +9,8 @@ VolcanicAsh::VolcanicAsh(const glm::vec3& emissionCenter, float emissionRadius, 
     windDirection(glm::vec3(1.0f, 0.0f, 0.0f)), windStrength(2.0f),
     rng(std::random_device{}()),
     radiusDist(0.0f, 1.0f),
-    sizeDist(5.0f, 15.0f),  // 大幅增加球体大小
-    lifeDist(20.0f, 40.0f),
+    sizeDist(5.0f, 15.0f),  // 球体大小
+    lifeDist(20.0f, 40.0f),  //生命周期
     velocityDist(-1.0f, 1.0f),
     angleDist(0.0f, 6.28318f) {
 

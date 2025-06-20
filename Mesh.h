@@ -12,15 +12,14 @@ struct Vertex {
 
 class Mesh {
 public:
-    // Mesh data
+    // 网格数据
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
     unsigned int VAO;
 
-    // Constructor
     Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices);
 
-    // Render the mesh
+    //绘制
     void Draw();
 
     // Destructor

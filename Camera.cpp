@@ -49,7 +49,7 @@ void Camera::ProcessMouseMovement(float xoffset, float yoffset, bool constrainPi
     Yaw += xoffset;
     Pitch += yoffset;
 
-    // Make sure that when pitch is out of bounds, screen doesn't get flipped
+    // 确保当俯仰角超出范围时，屏幕不会翻转
     if (constrainPitch) {
         if (Pitch > 89.0f)
             Pitch = 89.0f;
@@ -57,7 +57,7 @@ void Camera::ProcessMouseMovement(float xoffset, float yoffset, bool constrainPi
             Pitch = -89.0f;
     }
 
-    // Update Front, Right and Up Vectors using the updated Euler angles
+    // 使用更新后的欧拉角更新前向、右向和上向量
     updateCameraVectors();
 }
 
@@ -70,14 +70,14 @@ void Camera::ProcessMouseScroll(float yoffset) {
 }
 
 void Camera::updateCameraVectors() {
-    // Calculate the new Front vector
+    // 计算新的前向向量
     glm::vec3 front;
     front.x = cos(glm::radians(Yaw)) * cos(glm::radians(Pitch));
     front.y = sin(glm::radians(Pitch));
     front.z = sin(glm::radians(Yaw)) * cos(glm::radians(Pitch));
     Front = glm::normalize(front);
 
-    // Also re-calculate the Right and Up vector
+    // 重新计算右向量和上向量
     Right = glm::normalize(glm::cross(Front, WorldUp));
     Up = glm::normalize(glm::cross(Right, Front));
 }

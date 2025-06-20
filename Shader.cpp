@@ -2,7 +2,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 Shader::Shader(const char* vertexPath, const char* fragmentPath) {
-    // 1. Retrieve the vertex/fragment source code from filePath
+    // Retrieve the vertex/fragment source code from filePath
     std::string vertexCode;
     std::string fragmentCode;
     std::ifstream vShaderFile;
@@ -44,7 +44,7 @@ Shader::Shader(const char* vertexPath, const char* fragmentPath) {
     const char* vShaderCode = vertexCode.c_str();
     const char* fShaderCode = fragmentCode.c_str();
 
-    // 2. Compile shaders
+    // Compile shaders
     unsigned int vertex, fragment;
 
     // Vertex shader
@@ -79,7 +79,7 @@ Shader::Shader(const std::string& vertexSource, const std::string& fragmentSourc
     std::cout << "Vertex shader source length: " << vertexSource.length() << std::endl;
     std::cout << "Fragment shader source length: " << fragmentSource.length() << std::endl;
 
-    // 2. Compile shaders
+    // Compile shaders
     unsigned int vertex, fragment;
 
     // Vertex shader

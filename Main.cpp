@@ -15,41 +15,41 @@
 #include "LavaBubbles.h"
 #include "VolcanicAsh.h"
 
-// Window settings
+// 窗口设定
 const unsigned int SCR_WIDTH = 1280;
 const unsigned int SCR_HEIGHT = 720;
 
-// Shadow map settings
+// 阴影设定
 const unsigned int SHADOW_WIDTH = 2048;
 const unsigned int SHADOW_HEIGHT = 2048;
 
-// Camera
+// 摄像机位置
 Camera camera(glm::vec3(60.0f, 40.0f, 60.0f));
 float lastX = SCR_WIDTH / 2.0f;
 float lastY = SCR_HEIGHT / 2.0f;
 bool firstMouse = true;
 
-// Timing
+// 计时器
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
-// Day/Night cycle
+// 昼夜循环设置
 float timeOfDay = 0.0f;
 bool isTransitioning = false;
 float transitionSpeed = 0.5f;
 float targetTimeOfDay = 0.0f;
 
-// Wind parameters
+// 风向
 glm::vec3 windDirection(1.0f, 0.0f, 0.5f);
 float windStrength = 3.0f;
 
-// Callbacks
+// 回调函数声明
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 
-// Shadow mapping functions
+// 阴影函数
 unsigned int createShadowMap();
 glm::mat4 calculateLightSpaceMatrix(const glm::vec3& lightPos, const glm::vec3& targetPos);
 glm::vec3 calculateSunPosition(float timeOfDay);
@@ -62,13 +62,13 @@ struct SystemPointers {
 };
 
 int main() {
-    // Initialize GLFW
+
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    // Create window
+    // 窗口
     GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Realistic Volcano with Dense Ash Cloud", NULL, NULL);
     if (window == NULL) {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -80,19 +80,17 @@ int main() {
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
 
-    // Capture mouse
+    // 鼠标捕捉
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-    // Initialize GLEW
+    // 初始化 GLEW
     if (glewInit() != GLEW_OK) {
         std::cout << "Failed to initialize GLEW" << std::endl;
         return -1;
     }
 
-    // Configure OpenGL
     glEnable(GL_DEPTH_TEST);
 
-    // Build and compile shaders
     Shader terrainShader("shaders/terrain.vert", "shaders/terrain.frag");
     Shader skyboxShader("shaders/skybox.vert", "shaders/skybox.frag");
     Shader treeShader("shaders/tree.vert", "shaders/tree.frag");
@@ -103,49 +101,48 @@ int main() {
     Shader bubbleShader("shaders/bubble.vert", "shaders/bubble.frag");
     Shader ashShader("shaders/ash.vert", "shaders/ash.frag");
 
-    // Create terrain
+    // 地形
     Terrain terrain(150, 1.0f, 45.0f, 10.0f);
     auto terrainMesh = terrain.GenerateMesh();
 
     float craterHeight = terrain.GetHeightAt(0.0f, 0.0f);
     std::cout << "Crater height at center: " << craterHeight << std::endl;
 
-    // Create lava lake and position it at the crater
+    // 中央岩浆湖
     LavaLake lavaLake(8.0f, 64);
     lavaLake.SetPosition(glm::vec3(0.0f, craterHeight + 2.0f, 0.0f));
 
-    // Create lava bubbles system
+    // 岩浆湖气泡
     LavaBubbles lavaBubbles(lavaLake.GetPosition(), 8.0f, 40);
 
-    // Create enhanced lava flow system
+    // 岩浆流
     LavaFlow lavaFlow(&terrain, 0.8f);
     lavaFlow.SetLakeCenter(lavaLake.GetPosition());
     lavaFlow.StartFlow();
 
-    // Create volcanic ash system - 调整参数
+    // 火山灰参数
     glm::vec3 ashEmissionCenter = glm::vec3(0.0f, craterHeight + 5.0f, 0.0f);  // 降低发射高度
     VolcanicAsh volcanicAsh(ashEmissionCenter, 3.0f, 300);  // 减少粒子数量
     volcanicAsh.SetWind(windDirection, windStrength);
     volcanicAsh.SetIntensity(1.0f);  // 降低初始强度
 
-    // Store system pointers for input handling
+    // 系统粒子储存
     SystemPointers systems = { &lavaFlow, &volcanicAsh };
     glfwSetWindowUserPointer(window, &systems);
 
-    // Create skybox
+    // 天空盒
     Skybox skybox;
 
-    // Create trees
+    // 树
     Tree trees;
     trees.GenerateInstances(500, 150.0f, 45.0f, &terrain);
 
-    // Create shadow map
+    // 阴影贴图
     unsigned int depthMapFBO = createShadowMap();
     unsigned int depthMap;
     glGenTextures(1, &depthMap);
     glBindTexture(GL_TEXTURE_2D, depthMap);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
-        SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
@@ -159,13 +156,13 @@ int main() {
     glReadBuffer(GL_NONE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    // Configure shadow samplers
+    // 设置阴影样本
     terrainShader.use();
     terrainShader.setInt("shadowMap", 1);
     treeShader.use();
     treeShader.setInt("shadowMap", 1);
 
-    // Print controls
+    // 控制台提示
     std::cout << "\n=== VOLCANO ERUPTION CONTROLS ===" << std::endl;
     std::cout << "WASD - Move camera" << std::endl;
     std::cout << "Mouse - Look around" << std::endl;
@@ -179,14 +176,13 @@ int main() {
     std::cout << "Page Up/Down - Control wind strength" << std::endl;
     std::cout << "================================\n" << std::endl;
 
-    // Render loop
     while (!glfwWindowShouldClose(window)) {
         // Per-frame time logic
         float currentFrame = glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        // Update day/night cycle
+        // 昼夜循环更新
         if (isTransitioning) {
             float diff = targetTimeOfDay - timeOfDay;
             if (abs(diff) < 0.01f) {
@@ -197,60 +193,58 @@ int main() {
                 timeOfDay += diff * transitionSpeed * deltaTime;
             }
 
-            // Keep timeOfDay in [0, 1] range
+            // 保证时间在[0, 1]循环
             if (timeOfDay > 1.0f) timeOfDay -= 1.0f;
             if (timeOfDay < 0.0f) timeOfDay += 1.0f;
         }
 
-        // Update systems
+        // 更新系统
         lavaFlow.Update(deltaTime);
         lavaBubbles.Update(deltaTime);
         volcanicAsh.Update(deltaTime);
 
-        // Update wind for ash
+        // 风向与火山灰
         volcanicAsh.SetWind(windDirection, windStrength);
 
-        // Input
         processInput(window);
 
         // Calculate sun position and light properties
         glm::vec3 sunPos = calculateSunPosition(timeOfDay);
         glm::vec3 lightColor = calculateLightColor(timeOfDay);
-        glm::vec3 targetPos(0.0f, 0.0f, 0.0f); // Center of terrain
+        glm::vec3 targetPos(0.0f, 0.0f, 0.0f); // 地形中心
         glm::mat4 lightSpaceMatrix = calculateLightSpaceMatrix(sunPos, targetPos);
 
-        // 1. Render depth map (shadows)
+        // 阴影深度图
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
         glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
         glClear(GL_DEPTH_BUFFER_BIT);
 
-        // Render terrain to depth map
+        // 地形深度图
         shadowShader.use();
         shadowShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
         shadowShader.setMat4("model", glm::mat4(1.0f));
         terrainMesh->Draw();
 
-        // Render trees to depth map
+        // 树深度图
         shadowInstanceShader.use();
         shadowInstanceShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
         trees.DrawInstanced(shadowInstanceShader);
 
-        // 2. Render scene normally
+        // 常规场景渲染
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // View/projection transformations
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom),
-            (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 1000.0f);
+        // 视图投影变换
+        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 1000.0f);
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 model = glm::mat4(1.0f);
 
-        // Bind shadow map
+        // 阴影绑定
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, depthMap);
 
-        // Render terrain
+        // 程序化地形
         terrainShader.use();
         terrainShader.setMat4("projection", projection);
         terrainShader.setMat4("view", view);
@@ -265,7 +259,7 @@ int main() {
         terrainShader.setFloat("time", currentFrame);
         terrainMesh->Draw();
 
-        // Render lava lake
+        // 岩浆湖渲染
         glDepthFunc(GL_LEQUAL);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -280,7 +274,7 @@ int main() {
         glDisable(GL_BLEND);
         glDepthFunc(GL_LESS);
 
-        // Render lava bubbles
+        // 岩浆湖气泡渲染
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glEnable(GL_CULL_FACE);
@@ -296,14 +290,14 @@ int main() {
         glDisable(GL_CULL_FACE);
         glDisable(GL_BLEND);
 
-        // Update terrain shader's lava position
+        // 程序化火山
         glm::vec3 lavaPos = lavaLake.GetPosition();
         terrainShader.setVec3("lavaPos", lavaPos);
         treeShader.setVec3("lavaPos", lavaPos);
 
-        // Render lava flow particles
+        // 岩浆流渲染
         glEnable(GL_BLEND);
-        glBlendFunc(GL_ONE, GL_ONE);  // Additive blending for glow
+        glBlendFunc(GL_ONE, GL_ONE);  // 发光体混合
 
         lavaFlowShader.use();
         lavaFlowShader.setMat4("projection", projection);
@@ -315,7 +309,7 @@ int main() {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glDisable(GL_BLEND);
 
-        // Render trees
+        // 树渲染
         treeShader.use();
         treeShader.setMat4("projection", projection);
         treeShader.setMat4("view", view);
@@ -326,7 +320,7 @@ int main() {
         treeShader.setFloat("shadowIntensity", lightColor.r > 0.5f ? 0.8f : 0.3f);
         trees.DrawInstanced(treeShader);
 
-        // Render volcanic ash
+        // 火山灰渲染
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glDepthMask(GL_FALSE);  // 禁用深度写入
@@ -341,7 +335,7 @@ int main() {
         glDepthMask(GL_TRUE);
         glDisable(GL_BLEND);
 
-        // Render skybox last
+        // 天空盒渲染
         glDepthFunc(GL_LEQUAL);
         skyboxShader.use();
         glm::mat4 skyboxView = glm::mat4(glm::mat3(view));
@@ -352,12 +346,11 @@ int main() {
         skybox.Draw(skyboxShader);
         glDepthFunc(GL_LESS);
 
-        // Swap buffers and poll events
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
-    // Cleanup
+    // 清理
     glDeleteFramebuffers(1, &depthMapFBO);
     glDeleteTextures(1, &depthMap);
     glfwTerminate();
@@ -368,7 +361,7 @@ void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
 
-    // Camera movement
+    // 摄像头
     float cameraSpeed = 2.5f;
     if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
         cameraSpeed = 5.0f;
@@ -382,10 +375,10 @@ void processInput(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         camera.ProcessKeyboard(RIGHT, deltaTime * cameraSpeed);
 
-    // Get system pointers
+    //获取系统指针
     SystemPointers* systems = static_cast<SystemPointers*>(glfwGetWindowUserPointer(window));
 
-    // Day/Night cycle control
+    // 昼夜控制
     static bool tKeyPressed = false;
     if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS && !tKeyPressed) {
         tKeyPressed = true;
@@ -402,7 +395,7 @@ void processInput(GLFWwindow* window) {
         tKeyPressed = false;
     }
 
-    // Lava flow control
+    // 火山灰控制
     static bool yKeyPressed = false;
     if (glfwGetKey(window, GLFW_KEY_Y) == GLFW_PRESS && !yKeyPressed) {
         yKeyPressed = true;
@@ -419,7 +412,7 @@ void processInput(GLFWwindow* window) {
         yKeyPressed = false;
     }
 
-    // Volcanic eruption control
+    //火山喷发控制
     static bool eKeyPressed = false;
     if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS && !eKeyPressed) {
         eKeyPressed = true;
@@ -438,7 +431,7 @@ void processInput(GLFWwindow* window) {
         eKeyPressed = false;
     }
 
-    // Volcanic ash control
+    // 火山灰控制
     static bool aKeyPressed = false;
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS && !aKeyPressed) {
         aKeyPressed = true;
@@ -456,7 +449,7 @@ void processInput(GLFWwindow* window) {
         aKeyPressed = false;
     }
 
-    // Wind control
+    // 风力控制
     if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
         float angle = atan2(windDirection.z, windDirection.x);
         angle -= deltaTime;
@@ -480,7 +473,7 @@ void processInput(GLFWwindow* window) {
         std::cout << "Wind strength: " << windStrength << std::endl;
     }
 
-    // Manual time control
+    // 时间区间
     if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
         timeOfDay = 0.0f;
         isTransitioning = false;
